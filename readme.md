@@ -66,3 +66,7 @@ viewer = "less"     # Command to view logs
 - `~/.config/bj/bj.toml` - Configuration
 - `~/.config/bj/jobs.json` - Job metadata
 - `~/.config/bj/logs/` - Log files (timestamped)
+
+---
+
+<p align="center">Vibe Coded with <3</p>
