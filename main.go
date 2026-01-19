@@ -41,6 +41,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Auto-prune if configured
+	if cfg.AutoPruneHours > 0 {
+		t.PruneOlderThan(time.Duration(cfg.AutoPruneHours) * time.Hour)
+	}
+
 	// Parse first argument to determine action
 	arg := os.Args[1]
 
@@ -63,6 +68,9 @@ func main() {
 			jobID = id
 		}
 		viewLogs(cfg, t, jobID)
+
+	case "--prune":
+		pruneJobs(t)
 
 	case "--complete":
 		// Internal command: mark job as complete
@@ -100,6 +108,7 @@ Usage:
   bj <command>      Run command in background
   bj -l, --list     List all jobs
   bj --logs [id]    View logs (latest job if no id specified)
+  bj --prune        Clear all done jobs
   bj -h, --help     Show this help
 
 Examples:
@@ -107,7 +116,8 @@ Examples:
   bj npm install    Run 'npm install' in background
   bj -l             List all background jobs
   bj --logs         View logs of the latest job
-  bj --logs 5       View logs of job #5`)
+  bj --logs 5       View logs of job #5
+  bj --prune        Remove all successfully completed jobs`)
 }
 
 func runCommand(cfg *config.Config, t *tracker.Tracker, command string) {
@@ -179,6 +189,19 @@ func listJobs(t *tracker.Tracker) {
 		}
 	}
 	w.Flush()
+}
+
+func pruneJobs(t *tracker.Tracker) {
+	count, err := t.Prune()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error pruning jobs: %v\n", err)
+		os.Exit(1)
+	}
+	if count == 0 {
+		fmt.Println("No done jobs to prune.")
+	} else {
+		fmt.Printf("Pruned %d done job(s).\n", count)
+	}
 }
 
 func viewLogs(cfg *config.Config, t *tracker.Tracker, jobID int) {

@@ -270,3 +270,71 @@ func (t *Tracker) pruneOldJobs(jobs []Job) []Job {
 	result := append(running, completed...)
 	return result
 }
+
+// Prune removes all done jobs (exit code 0) and returns count pruned
+func (t *Tracker) Prune() (int, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	lockFile, err := t.lock()
+	if err != nil {
+		return 0, err
+	}
+	defer t.unlock(lockFile)
+
+	jobs, err := t.load()
+	if err != nil {
+		return 0, err
+	}
+
+	var kept []Job
+	pruned := 0
+	for _, j := range jobs {
+		if j.ExitCode != nil && *j.ExitCode == 0 {
+			pruned++
+		} else {
+			kept = append(kept, j)
+		}
+	}
+
+	if err := t.save(kept); err != nil {
+		return 0, err
+	}
+
+	return pruned, nil
+}
+
+// PruneOlderThan removes done jobs (exit code 0) older than the given duration
+func (t *Tracker) PruneOlderThan(d time.Duration) (int, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	lockFile, err := t.lock()
+	if err != nil {
+		return 0, err
+	}
+	defer t.unlock(lockFile)
+
+	jobs, err := t.load()
+	if err != nil {
+		return 0, err
+	}
+
+	cutoff := time.Now().Add(-d)
+	var kept []Job
+	pruned := 0
+	for _, j := range jobs {
+		// Prune if done (exit 0) and ended before cutoff
+		if j.ExitCode != nil && *j.ExitCode == 0 && j.EndTime != nil && j.EndTime.Before(cutoff) {
+			pruned++
+		} else {
+			kept = append(kept, j)
+		}
+	}
+
+	if err := t.save(kept); err != nil {
+		return 0, err
+	}
+
+	return pruned, nil
+}

@@ -8,13 +8,15 @@ import (
 )
 
 const (
-	DefaultLogDir = "logs"
-	DefaultViewer = "less"
+	DefaultLogDir         = "logs"
+	DefaultViewer         = "less"
+	DefaultAutoPruneHours = 0 // 0 = disabled
 )
 
 type Config struct {
-	LogDir string `toml:"log_dir"`
-	Viewer string `toml:"viewer"`
+	LogDir         string `toml:"log_dir"`
+	Viewer         string `toml:"viewer"`
+	AutoPruneHours int    `toml:"auto_prune_hours"` // auto-clear done jobs older than N hours (0 = disabled)
 }
 
 // ConfigDir returns the bj config directory path
@@ -29,8 +31,9 @@ func ConfigDir() (string, error) {
 // DefaultConfig returns a Config with default values
 func DefaultConfig() Config {
 	return Config{
-		LogDir: DefaultLogDir,
-		Viewer: DefaultViewer,
+		LogDir:         DefaultLogDir,
+		Viewer:         DefaultViewer,
+		AutoPruneHours: DefaultAutoPruneHours,
 	}
 }
 
