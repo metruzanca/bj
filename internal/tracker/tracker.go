@@ -2,14 +2,19 @@ package tracker
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"sort"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/metruzanca/bj/internal/config"
 )
+
+// ErrJobNotFound is returned when a job ID doesn't exist
+var ErrJobNotFound = errors.New("job not found")
 
 // Job represents a background job
 type Job struct {
@@ -24,9 +29,13 @@ type Job struct {
 
 // Tracker manages job metadata
 type Tracker struct {
-	mu   sync.Mutex
-	path string
+	mu       sync.Mutex
+	path     string
+	lockPath string
 }
+
+// MaxJobHistory is the maximum number of completed jobs to retain
+const MaxJobHistory = 100
 
 // New creates a new Tracker
 func New() (*Tracker, error) {
@@ -41,8 +50,30 @@ func New() (*Tracker, error) {
 	}
 
 	return &Tracker{
-		path: filepath.Join(configDir, "jobs.json"),
+		path:     filepath.Join(configDir, "jobs.json"),
+		lockPath: filepath.Join(configDir, "jobs.lock"),
 	}, nil
+}
+
+// lock acquires a file lock for cross-process safety
+func (t *Tracker) lock() (*os.File, error) {
+	f, err := os.OpenFile(t.lockPath, os.O_CREATE|os.O_RDWR, 0644)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+		f.Close()
+		return nil, err
+	}
+
+	return f, nil
+}
+
+// unlock releases the file lock
+func (t *Tracker) unlock(f *os.File) {
+	syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+	f.Close()
 }
 
 // load reads jobs from disk
@@ -91,6 +122,12 @@ func (t *Tracker) Add(cmd, pwd, logFile string) (int, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	lockFile, err := t.lock()
+	if err != nil {
+		return 0, err
+	}
+	defer t.unlock(lockFile)
+
 	jobs, err := t.load()
 	if err != nil {
 		return 0, err
@@ -117,6 +154,12 @@ func (t *Tracker) Complete(id int, exitCode int) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	lockFile, err := t.lock()
+	if err != nil {
+		return err
+	}
+	defer t.unlock(lockFile)
+
 	jobs, err := t.load()
 	if err != nil {
 		return err
@@ -127,17 +170,27 @@ func (t *Tracker) Complete(id int, exitCode int) error {
 			now := time.Now()
 			jobs[i].EndTime = &now
 			jobs[i].ExitCode = &exitCode
+
+			// Prune old completed jobs if we exceed MaxJobHistory
+			jobs = t.pruneOldJobs(jobs)
+
 			return t.save(jobs)
 		}
 	}
 
-	return nil // Job not found, ignore
+	return ErrJobNotFound
 }
 
 // List returns all jobs sorted by start time (newest first)
 func (t *Tracker) List() ([]Job, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
+	lockFile, err := t.lock()
+	if err != nil {
+		return nil, err
+	}
+	defer t.unlock(lockFile)
 
 	jobs, err := t.load()
 	if err != nil {
@@ -157,6 +210,12 @@ func (t *Tracker) Get(id int) (*Job, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	lockFile, err := t.lock()
+	if err != nil {
+		return nil, err
+	}
+	defer t.unlock(lockFile)
+
 	jobs, err := t.load()
 	if err != nil {
 		return nil, err
@@ -164,7 +223,8 @@ func (t *Tracker) Get(id int) (*Job, error) {
 
 	for _, j := range jobs {
 		if j.ID == id {
-			return &j, nil
+			job := j // avoid returning pointer to loop variable
+			return &job, nil
 		}
 	}
 
@@ -183,4 +243,30 @@ func (t *Tracker) Latest() (*Job, error) {
 	}
 
 	return &jobs[0], nil
+}
+
+// pruneOldJobs removes old completed jobs to keep history bounded
+func (t *Tracker) pruneOldJobs(jobs []Job) []Job {
+	// Count completed jobs
+	var running, completed []Job
+	for _, j := range jobs {
+		if j.ExitCode == nil {
+			running = append(running, j)
+		} else {
+			completed = append(completed, j)
+		}
+	}
+
+	// If completed jobs exceed max, keep only the most recent
+	if len(completed) > MaxJobHistory {
+		// Sort completed by start time descending
+		sort.Slice(completed, func(i, j int) bool {
+			return completed[i].StartTime.After(completed[j].StartTime)
+		})
+		completed = completed[:MaxJobHistory]
+	}
+
+	// Combine running + retained completed
+	result := append(running, completed...)
+	return result
 }

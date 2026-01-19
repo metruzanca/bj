@@ -82,7 +82,7 @@ func (r *Runner) Run(command string) (int, error) {
 	// 3. Calls bj --complete
 	// We use /bin/sh for the wrapper since it needs POSIX syntax for variable assignment
 	wrapperCmd := fmt.Sprintf(`%s -c %s; exitcode=$?; %s --complete %d $exitcode`,
-		userShell, shellQuote(command), selfPath, jobID)
+		userShell, shellQuote(command), shellQuote(selfPath), jobID)
 
 	cmd := exec.Command("/bin/sh", "-c", wrapperCmd)
 	cmd.Dir = pwd
@@ -99,8 +99,8 @@ func (r *Runner) Run(command string) (int, error) {
 		return 0, fmt.Errorf("failed to start command: %w", err)
 	}
 
-	// Don't wait for the process - let it run in background
-	// The log file will be closed when the process exits
+	// Close our handle to the log file - the child process has its own fd
+	logFile.Close()
 
 	return jobID, nil
 }
