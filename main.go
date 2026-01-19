@@ -29,14 +29,14 @@ func main() {
 	// Load config
 	cfg, err := config.Load()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		fmt.Fprintf(os.Stderr, "bj couldn't get comfortable: %v\n", err)
 		os.Exit(1)
 	}
 
 	// Create tracker
 	t, err := tracker.New()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating tracker: %v\n", err)
+		fmt.Fprintf(os.Stderr, "bj lost track of things: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -61,7 +61,7 @@ func main() {
 		if len(os.Args) > 2 {
 			id, err := strconv.Atoi(os.Args[2])
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Invalid job ID: %s\n", os.Args[2])
+				fmt.Fprintf(os.Stderr, "bj needs a valid number, not '%s'\n", os.Args[2])
 				os.Exit(1)
 			}
 			jobID = id
@@ -79,17 +79,17 @@ func main() {
 		}
 		jobID, err := strconv.Atoi(os.Args[2])
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Invalid job ID: %s\n", os.Args[2])
+			fmt.Fprintf(os.Stderr, "bj needs a valid job ID, not '%s'\n", os.Args[2])
 			os.Exit(1)
 		}
 		exitCode, err := strconv.Atoi(os.Args[3])
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Invalid exit code: %s\n", os.Args[3])
+			fmt.Fprintf(os.Stderr, "bj needs a valid exit code, not '%s'\n", os.Args[3])
 			os.Exit(1)
 		}
 		r := runner.New(cfg, t)
 		if err := r.Complete(jobID, exitCode); err != nil {
-			fmt.Fprintf(os.Stderr, "Error completing job: %v\n", err)
+			fmt.Fprintf(os.Stderr, "bj couldn't finish properly: %v\n", err)
 			os.Exit(1)
 		}
 
@@ -103,30 +103,31 @@ func main() {
 func printUsage() {
 	fmt.Println(`bj - Background Jobs
 
+Give bj a command and it'll handle the rest while you sit back and relax.
+
 Usage:
-  bj <command>      Run command in background
-  bj -l, --list     List all jobs
-  bj --logs [id]    View logs (latest job if no id specified)
-  bj --prune        Clear all done jobs
-  bj -h, --help     Show this help
+  bj <command>      Slip a command in the background
+  bj -l, --list     See what bj is working on
+  bj --logs [id]    Watch bj's performance (latest job if no id specified)
+  bj --prune        Clean up when bj is finished
 
 Examples:
-  bj sleep 10       Run 'sleep 10' in background
-  bj npm install    Run 'npm install' in background
-  bj -l             List all background jobs
-  bj --logs         View logs of the latest job
-  bj --logs 5       View logs of job #5
-  bj --prune        Remove all successfully completed jobs`)
+  bj sleep 10       Let bj handle your sleep needs
+  bj npm install    bj npm while you grab coffee
+  bj -l             Check how bj is doing
+  bj --logs         See bj's latest output
+  bj --logs 5       Inspect a specific session
+  bj --prune        Tidy up after a satisfying bj`)
 }
 
 func runCommand(cfg *config.Config, t *tracker.Tracker, command string) {
 	r := runner.New(cfg, t)
 	jobID, err := r.Run(command)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error starting job: %v\n", err)
+		fmt.Fprintf(os.Stderr, "bj couldn't get it up: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("[%d] Started: %s\n", jobID, command)
+	fmt.Printf("[%d] bj is on it: %s\n", jobID, command)
 }
 
 type jobRow struct {
@@ -142,12 +143,12 @@ type jobRow struct {
 func listJobs(t *tracker.Tracker) {
 	jobs, err := t.List()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error listing jobs: %v\n", err)
+		fmt.Fprintf(os.Stderr, "bj can't show you what it's got: %v\n", err)
 		os.Exit(1)
 	}
 
 	if len(jobs) == 0 {
-		fmt.Println("No jobs found.")
+		fmt.Println("bj has nothing going on. Give it something to do!")
 		return
 	}
 
@@ -224,13 +225,13 @@ func listJobs(t *tracker.Tracker) {
 func pruneJobs(t *tracker.Tracker) {
 	count, err := t.Prune()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error pruning jobs: %v\n", err)
+		fmt.Fprintf(os.Stderr, "bj made a mess while cleaning up: %v\n", err)
 		os.Exit(1)
 	}
 	if count == 0 {
-		fmt.Println("No done jobs to prune.")
+		fmt.Println("Nothing to clean up. bj keeps it tidy.")
 	} else {
-		fmt.Printf("Pruned %d done job(s).\n", count)
+		fmt.Printf("Wiped away %d finished job(s). Fresh and ready for more.\n", count)
 	}
 }
 
@@ -241,28 +242,28 @@ func viewLogs(cfg *config.Config, t *tracker.Tracker, jobID int) {
 	if jobID == 0 {
 		job, err = t.Latest()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error getting latest job: %v\n", err)
+			fmt.Fprintf(os.Stderr, "bj can't recall the last session: %v\n", err)
 			os.Exit(1)
 		}
 		if job == nil {
-			fmt.Println("No jobs found.")
+			fmt.Println("bj hasn't done anything yet. Get it started first!")
 			os.Exit(0)
 		}
 	} else {
 		job, err = t.Get(jobID)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error getting job: %v\n", err)
+			fmt.Fprintf(os.Stderr, "bj can't find that one: %v\n", err)
 			os.Exit(1)
 		}
 		if job == nil {
-			fmt.Fprintf(os.Stderr, "Job %d not found.\n", jobID)
+			fmt.Fprintf(os.Stderr, "Job %d? bj doesn't remember that.\n", jobID)
 			os.Exit(1)
 		}
 	}
 
 	// Check if log file exists
 	if _, err := os.Stat(job.LogFile); os.IsNotExist(err) {
-		fmt.Fprintf(os.Stderr, "Log file not found: %s\n", job.LogFile)
+		fmt.Fprintf(os.Stderr, "bj swallowed the logs. File not found: %s\n", job.LogFile)
 		os.Exit(1)
 	}
 
@@ -273,7 +274,7 @@ func viewLogs(cfg *config.Config, t *tracker.Tracker, jobID int) {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error opening logs: %v\n", err)
+		fmt.Fprintf(os.Stderr, "bj choked while opening logs: %v\n", err)
 		os.Exit(1)
 	}
 }

@@ -1,6 +1,6 @@
 # bj - Background Jobs
 
-A handy lightweight CLI tool that reliably runs commands in the background. Sometimes `&` isn't enough and things don't detach properly. `bj` fixes that without much fuss.
+A handy lightweight CLI tool that reliably runs commands in the background. Sometimes `&` isn't enough and things don't detach properly. `bj` fixes that without much fuss. It goes down easy and gets the job done.
 
 ## Install
 
@@ -35,6 +35,7 @@ bj --logs 3             # View output from job #3
 - **Colored output** - Running/done/failed jobs are visually distinct
 - **Auto-cleanup** - Done jobs older than 24hrs are automatically pruned
 - **Configurable** - Custom log directory and log viewer
+- **Quick and satisfying** - Finishes fast and leaves you free to move on
 
 ## Architecture
 
@@ -53,6 +54,7 @@ This means:
 - No daemon to manage or crash
 - Jobs survive terminal closure
 - Works with any shell (bash, zsh, fish, etc.)
+- Always ready when you need it
 
 ## Configuration
 
@@ -72,4 +74,5 @@ auto_prune_hours = 24   # Auto-delete done jobs older than N hours (0 = disabled
 
 ---
 
+<p align="center">Give bj a try. You won't regret it.</p>
 <p align="center">Vibe Coded with <3</p>
