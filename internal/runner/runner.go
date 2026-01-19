@@ -1,0 +1,117 @@
+package runner
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/metruzanca/bj/internal/config"
+	"github.com/metruzanca/bj/internal/tracker"
+)
+
+// Runner handles spawning and tracking background jobs
+type Runner struct {
+	config  *config.Config
+	tracker *tracker.Tracker
+}
+
+// New creates a new Runner
+func New(cfg *config.Config, t *tracker.Tracker) *Runner {
+	return &Runner{
+		config:  cfg,
+		tracker: t,
+	}
+}
+
+// Run spawns a command in a detached background process
+func (r *Runner) Run(command string) (int, error) {
+	// Get current working directory
+	pwd, err := os.Getwd()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get working directory: %w", err)
+	}
+
+	// Ensure log directory exists
+	if err := r.config.EnsureLogDir(); err != nil {
+		return 0, fmt.Errorf("failed to create log directory: %w", err)
+	}
+
+	logDir, err := r.config.LogDirPath()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get log directory: %w", err)
+	}
+
+	// Create log file with timestamp
+	timestamp := time.Now().Format("20060102-150405")
+	logFileName := fmt.Sprintf("%s.log", timestamp)
+	logPath := filepath.Join(logDir, logFileName)
+
+	// Create the log file
+	logFile, err := os.Create(logPath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create log file: %w", err)
+	}
+
+	// Add job to tracker first to get ID
+	jobID, err := r.tracker.Add(command, pwd, logPath)
+	if err != nil {
+		logFile.Close()
+		return 0, fmt.Errorf("failed to track job: %w", err)
+	}
+
+	// Get user's shell from environment for running the command
+	userShell := os.Getenv("SHELL")
+	if userShell == "" {
+		userShell = "/bin/sh"
+	}
+
+	// Get the path to our own executable
+	selfPath, err := os.Executable()
+	if err != nil {
+		logFile.Close()
+		return 0, fmt.Errorf("failed to get executable path: %w", err)
+	}
+
+	// Create a wrapper that:
+	// 1. Runs the command in the user's shell
+	// 2. Captures exit code
+	// 3. Calls bj --complete
+	// We use /bin/sh for the wrapper since it needs POSIX syntax for variable assignment
+	wrapperCmd := fmt.Sprintf(`%s -c %s; exitcode=$?; %s --complete %d $exitcode`,
+		userShell, shellQuote(command), selfPath, jobID)
+
+	cmd := exec.Command("/bin/sh", "-c", wrapperCmd)
+	cmd.Dir = pwd
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
+
+	// Detach the process so it survives parent exit
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setsid: true,
+	}
+
+	if err := cmd.Start(); err != nil {
+		logFile.Close()
+		return 0, fmt.Errorf("failed to start command: %w", err)
+	}
+
+	// Don't wait for the process - let it run in background
+	// The log file will be closed when the process exits
+
+	return jobID, nil
+}
+
+// Complete marks a job as completed (called by the wrapper)
+func (r *Runner) Complete(jobID int, exitCode int) error {
+	return r.tracker.Complete(jobID, exitCode)
+}
+
+// shellQuote properly quotes a string for shell execution
+func shellQuote(s string) string {
+	// Use single quotes and escape any single quotes in the string
+	return "'" + strings.ReplaceAll(s, "'", "'\"'\"'") + "'"
+}
