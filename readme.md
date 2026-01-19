@@ -1,6 +1,6 @@
 # bj - Background Jobs
 
-A lightweight CLI tool that reliably runs commands in the background. Sometimes `&` isn't enough (e.g. `mise install &` doesn't always detach properly). `bj` fixes that.
+A handy lightweight CLI tool that reliably runs commands in the background. Sometimes `&` isn't enough and things don't detach properly. `bj` fixes that without much fuss.
 
 ## Install
 
