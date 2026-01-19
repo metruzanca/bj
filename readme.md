@@ -1,12 +1,68 @@
-# Background Jobs
+# bj - Background Jobs
 
-Simple Golang CLI util that reliably sends a job to the background. Sometimes appending `&` to the end of a command is not enough to send it to the background. (e.g. `mise install &` will not go to background for some reason).
+A lightweight CLI tool that reliably runs commands in the background. Sometimes `&` isn't enough (e.g. `mise install &` doesn't always detach properly). `bj` fixes that.
 
-`bj` usage will be simple: `bj mise install` will run the $cmd (in this case mise install) in a background process (maybe take the current shell and spawn a new process of the shell in the current pwd and running the command).
+## Install
 
-`bj` will do some minimal tracking, and pipe all logs to a file. Accessing these logs is as simple as `bj --list` or `bg -l` (important to note that bj will only consider flags immediately after the `bj` word as its own, all others will be ignored as they're considered as command flags). This list will show a list of all files, start and end date, execution time. These logs should live somewhere under the home directory.
+```bash
+go install github.com/metruzanca/bj@latest
+```
 
-`bj --logs` without args will show logs for the latest command logs, with an argument it will show that file. The file will be opened with `less`.
+## Usage
 
-`bj` will have a small config file in ~/.config/bj/bj.toml this should have flat config for log location (default ~/.config/bj/logs/), logs viewer command (default less).
+```bash
+bj <command>       # Run command in background
+bj -l, --list      # List all jobs
+bj --logs [id]     # View logs (latest if no id)
+```
 
+### Examples
+
+```bash
+bj npm install          # Run npm install in background
+bj make build           # Run make build in background
+bj -l                   # Show job list with status
+bj --logs               # View latest job's output
+bj --logs 3             # View output from job #3
+```
+
+## Features
+
+- **Reliable background execution** - Uses `setsid` to fully detach processes
+- **Job tracking** - Records start/end time, exit code, working directory
+- **Log capture** - All stdout/stderr saved to timestamped log files
+- **Colored output** - Running/done/failed jobs are visually distinct
+- **Configurable** - Custom log directory and log viewer
+
+## Architecture
+
+`bj` is designed to be extremely lightweight with no daemon or background service.
+
+When you run `bj <command>`:
+
+1. `bj` spawns a detached shell process (`$SHELL -c "your command"`)
+2. Registers the job in `~/.config/bj/jobs.json`
+3. Exits immediately - `bj` itself doesn't stay running
+
+The detached shell handles everything: running the command, writing output to the log file, and calling `bj --complete` when done to record the exit code.
+
+This means:
+- Zero memory footprint after launch
+- No daemon to manage or crash
+- Jobs survive terminal closure
+- Works with any shell (bash, zsh, fish, etc.)
+
+## Configuration
+
+Config file: `~/.config/bj/bj.toml`
+
+```toml
+log_dir = "logs"    # Relative to config dir, or absolute path
+viewer = "less"     # Command to view logs
+```
+
+## Files
+
+- `~/.config/bj/bj.toml` - Configuration
+- `~/.config/bj/jobs.json` - Job metadata
+- `~/.config/bj/logs/` - Log files (timestamped)
