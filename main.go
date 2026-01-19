@@ -14,6 +14,13 @@ import (
 	"github.com/metruzanca/bj/internal/tracker"
 )
 
+// ANSI color codes
+const (
+	colorReset = "\033[0m"
+	colorDim   = "\033[2m"
+	colorRed   = "\033[31m"
+)
+
 func main() {
 	if len(os.Args) < 2 {
 		printUsage()
@@ -131,12 +138,16 @@ func listJobs(t *tracker.Tracker) {
 	for _, job := range jobs {
 		status := "running"
 		duration := time.Since(job.StartTime).Round(time.Second).String()
+		isError := false
+		isDone := false
 
 		if job.ExitCode != nil {
 			if *job.ExitCode == 0 {
 				status = "done"
+				isDone = true
 			} else {
 				status = fmt.Sprintf("exit(%d)", *job.ExitCode)
+				isError = true
 			}
 			if job.EndTime != nil {
 				duration = job.EndTime.Sub(job.StartTime).Round(time.Second).String()
@@ -144,14 +155,28 @@ func listJobs(t *tracker.Tracker) {
 		}
 
 		startStr := job.StartTime.Format("Jan 02 15:04")
-		
+
 		// Truncate long commands
 		cmd := job.Command
 		if len(cmd) > 40 {
 			cmd = cmd[:37] + "..."
 		}
 
-		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n", job.ID, status, startStr, duration, cmd)
+		// Apply colors based on status
+		if isError {
+			// Error row: dim gray with red status cell
+			fmt.Fprintf(w, "%s%d\t%s%s%s%s\t%s\t%s\t%s%s\n",
+				colorDim, job.ID,
+				colorRed, status, colorReset, colorDim,
+				startStr, duration, cmd, colorReset)
+		} else if isDone {
+			// Done row: dim gray
+			fmt.Fprintf(w, "%s%d\t%s\t%s\t%s\t%s%s\n",
+				colorDim, job.ID, status, startStr, duration, cmd, colorReset)
+		} else {
+			// Running: normal color
+			fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n", job.ID, status, startStr, duration, cmd)
+		}
 	}
 	w.Flush()
 }
