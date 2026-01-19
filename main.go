@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"text/tabwriter"
 	"time"
 
 	"github.com/metruzanca/bj/internal/config"
@@ -130,6 +129,16 @@ func runCommand(cfg *config.Config, t *tracker.Tracker, command string) {
 	fmt.Printf("[%d] Started: %s\n", jobID, command)
 }
 
+type jobRow struct {
+	id       int
+	status   string
+	start    string
+	duration string
+	cmd      string
+	isError  bool
+	isDone   bool
+}
+
 func listJobs(t *tracker.Tracker) {
 	jobs, err := t.List()
 	if err != nil {
@@ -142,53 +151,74 @@ func listJobs(t *tracker.Tracker) {
 		return
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "ID\tSTATUS\tSTART\tDURATION\tCOMMAND")
-
+	// Build rows first
+	var rows []jobRow
 	for _, job := range jobs {
-		status := "running"
-		duration := time.Since(job.StartTime).Round(time.Second).String()
-		isError := false
-		isDone := false
+		row := jobRow{id: job.ID}
+		row.status = "running"
+		row.duration = time.Since(job.StartTime).Round(time.Second).String()
 
 		if job.ExitCode != nil {
 			if *job.ExitCode == 0 {
-				status = "done"
-				isDone = true
+				row.status = "done"
+				row.isDone = true
 			} else {
-				status = fmt.Sprintf("exit(%d)", *job.ExitCode)
-				isError = true
+				row.status = fmt.Sprintf("exit(%d)", *job.ExitCode)
+				row.isError = true
 			}
 			if job.EndTime != nil {
-				duration = job.EndTime.Sub(job.StartTime).Round(time.Second).String()
+				row.duration = job.EndTime.Sub(job.StartTime).Round(time.Second).String()
 			}
 		}
 
-		startStr := job.StartTime.Format("Jan 02 15:04")
+		row.start = job.StartTime.Format("Jan 02 15:04")
 
 		// Truncate long commands
-		cmd := job.Command
-		if len(cmd) > 40 {
-			cmd = cmd[:37] + "..."
+		row.cmd = job.Command
+		if len(row.cmd) > 40 {
+			row.cmd = row.cmd[:37] + "..."
 		}
 
-		// Apply colors based on status
-		if isError {
-			// Error row: dim gray with red status cell
-			fmt.Fprintf(w, "%s%d\t%s%s%s%s\t%s\t%s\t%s%s\n",
-				colorDim, job.ID,
-				colorRed, status, colorReset, colorDim,
-				startStr, duration, cmd, colorReset)
-		} else if isDone {
-			// Done row: dim gray
-			fmt.Fprintf(w, "%s%d\t%s\t%s\t%s\t%s%s\n",
-				colorDim, job.ID, status, startStr, duration, cmd, colorReset)
-		} else {
-			// Running: normal color
-			fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n", job.ID, status, startStr, duration, cmd)
+		rows = append(rows, row)
+	}
+
+	// Calculate column widths
+	idW, statusW, startW, durW := 2, 6, 5, 8 // header widths
+	for _, r := range rows {
+		if w := len(fmt.Sprintf("%d", r.id)); w > idW {
+			idW = w
+		}
+		if w := len(r.status); w > statusW {
+			statusW = w
+		}
+		if w := len(r.start); w > startW {
+			startW = w
+		}
+		if w := len(r.duration); w > durW {
+			durW = w
 		}
 	}
-	w.Flush()
+
+	// Print header
+	fmt.Printf("%-*s  %-*s  %-*s  %-*s  %s\n", idW, "ID", statusW, "STATUS", startW, "START", durW, "DURATION", "COMMAND")
+
+	// Print rows with colors
+	for _, r := range rows {
+		line := fmt.Sprintf("%-*d  %-*s  %-*s  %-*s  %s", idW, r.id, statusW, r.status, startW, r.start, durW, r.duration, r.cmd)
+		if r.isError {
+			// Dim row with red status
+			statusStart := idW + 2
+			statusEnd := statusStart + statusW
+			fmt.Printf("%s%s%s%s%s%s%s\n",
+				colorDim, line[:statusStart],
+				colorRed, line[statusStart:statusEnd],
+				colorReset, colorDim, line[statusEnd:]+colorReset)
+		} else if r.isDone {
+			fmt.Printf("%s%s%s\n", colorDim, line, colorReset)
+		} else {
+			fmt.Println(line)
+		}
+	}
 }
 
 func pruneJobs(t *tracker.Tracker) {

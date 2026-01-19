@@ -10,7 +10,7 @@ import (
 const (
 	DefaultLogDir         = "logs"
 	DefaultViewer         = "less"
-	DefaultAutoPruneHours = 0 // 0 = disabled
+	DefaultAutoPruneHours = 24 // auto-prune done jobs older than 24hrs (0 = disabled)
 )
 
 type Config struct {

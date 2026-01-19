@@ -14,6 +14,7 @@ go install github.com/metruzanca/bj@latest
 bj <command>       # Run command in background
 bj -l, --list      # List all jobs
 bj --logs [id]     # View logs (latest if no id)
+bj --prune         # Clear all done jobs
 ```
 
 ### Examples
@@ -32,6 +33,7 @@ bj --logs 3             # View output from job #3
 - **Job tracking** - Records start/end time, exit code, working directory
 - **Log capture** - All stdout/stderr saved to timestamped log files
 - **Colored output** - Running/done/failed jobs are visually distinct
+- **Auto-cleanup** - Done jobs older than 24hrs are automatically pruned
 - **Configurable** - Custom log directory and log viewer
 
 ## Architecture
@@ -57,8 +59,9 @@ This means:
 Config file: `~/.config/bj/bj.toml`
 
 ```toml
-log_dir = "logs"    # Relative to config dir, or absolute path
-viewer = "less"     # Command to view logs
+log_dir = "logs"        # Relative to config dir, or absolute path
+viewer = "less"         # Command to view logs
+auto_prune_hours = 24   # Auto-delete done jobs older than N hours (0 = disabled)
 ```
 
 ## Files
