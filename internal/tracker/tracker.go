@@ -400,6 +400,55 @@ func (t *Tracker) Prune() (int, error) {
 	return pruned, nil
 }
 
+// GarbageCollect finds orphaned jobs (running but process is gone) and marks them as failed
+// Returns the number of jobs cleaned up
+func (t *Tracker) GarbageCollect() (int, error) {
+	lockFile, err := t.lock()
+	if err != nil {
+		return 0, fmt.Errorf("failed to acquire lock: %w", err)
+	}
+	defer t.unlock(lockFile)
+
+	jobs, err := t.load()
+	if err != nil {
+		return 0, fmt.Errorf("failed to load jobs: %w", err)
+	}
+
+	collected := 0
+	for i := range jobs {
+		// Skip completed jobs
+		if jobs[i].ExitCode != nil {
+			continue
+		}
+
+		// Check if process is still alive
+		if jobs[i].PID > 0 {
+			// Try to send signal 0 to check if process exists
+			err := syscall.Kill(jobs[i].PID, 0)
+			if err == nil {
+				// Process still exists
+				continue
+			}
+			// Process is gone - mark as failed (ruined)
+		}
+
+		// Mark as failed with exit code -1 (indicates abnormal termination)
+		exitCode := -1
+		now := time.Now()
+		jobs[i].ExitCode = &exitCode
+		jobs[i].EndTime = &now
+		collected++
+	}
+
+	if collected > 0 {
+		if err := t.save(jobs); err != nil {
+			return 0, fmt.Errorf("failed to save jobs: %w", err)
+		}
+	}
+
+	return collected, nil
+}
+
 // PruneOlderThan removes done jobs (exit code 0) older than the given duration, deletes their log files
 func (t *Tracker) PruneOlderThan(d time.Duration) (int, error) {
 	lockFile, err := t.lock()

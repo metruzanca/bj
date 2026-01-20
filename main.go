@@ -122,6 +122,9 @@ func main() {
 	case arg == "--prune":
 		pruneJobs(t)
 
+	case arg == "--gc":
+		garbageCollect(t)
+
 	case arg == "--kill":
 		var jobID int
 		if len(args) > 1 {
@@ -285,6 +288,21 @@ Examples:
   bj --kill         Stop the latest job mid-stroke
   bj --kill 5       Pull out of job #5 specifically`)
 
+	case "--gc":
+		fmt.Println(`bj --gc - Find jobs that ended unexpectedly
+
+Usage: bj --gc [--json]
+
+Detects orphaned jobs that appear to be running but whose process is gone
+(e.g., after a crash or reboot). These ruined jobs are marked as failed
+with exit code -1.
+
+Options:
+  --json    Output collected count as JSON
+
+Examples:
+  bj --gc           Clean up after an unexpected interruption`)
+
 	case "--retry":
 		fmt.Println(`bj --retry - Keep going until bj finishes the job
 
@@ -361,6 +379,7 @@ Usage:
   bj --kill [id]            Stop a job mid-action
   bj --retry[=N] [--id ID]  Retry a ruined job
   bj --prune                Clean up when bj is finished
+  bj --gc                   Find jobs that were ruined unexpectedly
 
 Shell Integration:
   bj --completion <sh>  Output shell completions (fish, zsh)
@@ -380,8 +399,8 @@ Examples:
   bj --list                 Check how bj is doing
   bj --logs                 See bj's latest output
   bj --kill                 Stop the current job abruptly
+  bj --gc                   Find ruined jobs after a crash
   bj --retry                Retry the most recent ruined job
-  bj --retry --id 5         Retry ruined job #5 until success
   bj --prune                Tidy up after a satisfying bj
 
 Shell Setup:
@@ -550,6 +569,20 @@ func pruneJobs(t *tracker.Tracker) {
 		fmt.Println("Nothing to clean up. bj keeps it tidy.")
 	} else {
 		fmt.Printf("Wiped away %d finished job(s). Fresh and ready for more.\n", count)
+	}
+}
+
+func garbageCollect(t *tracker.Tracker) {
+	count, err := t.GarbageCollect()
+	if err != nil {
+		exitWithError("bj had trouble cleaning up its mess: %v", err)
+	}
+	if jsonOutput {
+		outputJSON(map[string]interface{}{"collected": count})
+	} else if count == 0 {
+		fmt.Println("No orphaned jobs found. bj keeps track of all its encounters.")
+	} else {
+		fmt.Printf("Found %d ruined job(s) that ended without bj noticing. Marked as failed.\n", count)
 	}
 }
 
@@ -834,6 +867,7 @@ complete -c bj -l kill -d "Stop a job mid-action"
 complete -c bj -l retry -d "Keep going until bj finishes"
 complete -c bj -l id -d "Specify job ID for --retry" -xa "(bj --list --json 2>/dev/null | jq -r '.[] | select(.exit_code != null and .exit_code != 0) | .id' 2>/dev/null)"
 complete -c bj -l prune -d "Clean up when bj is finished"
+complete -c bj -l gc -d "Find ruined jobs after a crash"
 complete -c bj -l json -d "Output in JSON format"
 complete -c bj -l help -d "Show help"
 complete -c bj -s h -d "Show help"
@@ -876,6 +910,7 @@ _bj() {
         '--retry=-[Keep going until bj finishes]:max attempts:' \
         '--id[Specify job ID for --retry]:job ID:_bj_failed_job_ids' \
         '--prune[Clean up when bj is finished]' \
+        '--gc[Find ruined jobs after a crash]' \
         '--json[Output in JSON format]' \
         '--help[Show help]' \
         '-h[Show help]' \
