@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,6 +19,9 @@ var (
 	bjPath    string
 	buildOnce sync.Once
 	buildErr  error
+
+	// -update flag regenerates golden files
+	update = flag.Bool("update", false, "update golden files")
 )
 
 // buildBinary builds the bj binary once for all tests
@@ -147,70 +151,125 @@ func assertExitCode(t *testing.T, got, want int) {
 	}
 }
 
+// goldenFile compares output against a golden file, or updates it if -update flag is set
+func goldenFile(t *testing.T, name, got string) {
+	t.Helper()
+
+	golden := filepath.Join("testdata", name+".golden")
+
+	if *update {
+		if err := os.MkdirAll("testdata", 0755); err != nil {
+			t.Fatalf("failed to create testdata dir: %v", err)
+		}
+		if err := os.WriteFile(golden, []byte(got), 0644); err != nil {
+			t.Fatalf("failed to write golden file: %v", err)
+		}
+		return
+	}
+
+	want, err := os.ReadFile(golden)
+	if err != nil {
+		t.Fatalf("failed to read golden file %s (run with -update to create): %v", golden, err)
+	}
+
+	if got != string(want) {
+		t.Errorf("output differs from golden file %s\n\ngot:\n%s\n\nwant:\n%s", golden, got, string(want))
+	}
+}
+
 // =============================================================================
-// Static Output Tests (Snapshots)
+// Golden File Tests (Static Output Snapshots)
 // =============================================================================
 
 func TestHelp(t *testing.T) {
 	env := newTestEnv(t)
-
 	stdout, _, code := env.run("--help")
 	assertExitCode(t, code, 0)
-	assertContains(t, stdout, "bj - Background Jobs")
-	assertContains(t, stdout, "Usage:")
-	assertContains(t, stdout, "--list")
-	assertContains(t, stdout, "--logs")
-	assertContains(t, stdout, "--kill")
-	assertContains(t, stdout, "--retry")
-	assertContains(t, stdout, "--prune")
-	assertContains(t, stdout, "--gc")
+	goldenFile(t, "help", stdout)
 }
 
 func TestHelpList(t *testing.T) {
 	env := newTestEnv(t)
-
 	stdout, _, code := env.run("--list", "--help")
 	assertExitCode(t, code, 0)
-	assertContains(t, stdout, "bj --list")
-	assertContains(t, stdout, "--running")
-	assertContains(t, stdout, "--failed")
-	assertContains(t, stdout, "--done")
+	goldenFile(t, "help-list", stdout)
+}
+
+func TestHelpLogs(t *testing.T) {
+	env := newTestEnv(t)
+	stdout, _, code := env.run("--logs", "--help")
+	assertExitCode(t, code, 0)
+	goldenFile(t, "help-logs", stdout)
+}
+
+func TestHelpKill(t *testing.T) {
+	env := newTestEnv(t)
+	stdout, _, code := env.run("--kill", "--help")
+	assertExitCode(t, code, 0)
+	goldenFile(t, "help-kill", stdout)
+}
+
+func TestHelpRetry(t *testing.T) {
+	env := newTestEnv(t)
+	stdout, _, code := env.run("--retry", "--help")
+	assertExitCode(t, code, 0)
+	goldenFile(t, "help-retry", stdout)
+}
+
+func TestHelpPrune(t *testing.T) {
+	env := newTestEnv(t)
+	stdout, _, code := env.run("--prune", "--help")
+	assertExitCode(t, code, 0)
+	goldenFile(t, "help-prune", stdout)
+}
+
+func TestHelpGC(t *testing.T) {
+	env := newTestEnv(t)
+	stdout, _, code := env.run("--gc", "--help")
+	assertExitCode(t, code, 0)
+	goldenFile(t, "help-gc", stdout)
+}
+
+func TestHelpCompletion(t *testing.T) {
+	env := newTestEnv(t)
+	stdout, _, code := env.run("--completion", "--help")
+	assertExitCode(t, code, 0)
+	goldenFile(t, "help-completion", stdout)
+}
+
+func TestHelpInit(t *testing.T) {
+	env := newTestEnv(t)
+	stdout, _, code := env.run("--init", "--help")
+	assertExitCode(t, code, 0)
+	goldenFile(t, "help-init", stdout)
 }
 
 func TestCompletionFish(t *testing.T) {
 	env := newTestEnv(t)
-
 	stdout, _, code := env.run("--completion", "fish")
 	assertExitCode(t, code, 0)
-	assertContains(t, stdout, "# bj fish completions")
-	assertContains(t, stdout, "complete -c bj")
+	goldenFile(t, "completion-fish", stdout)
 }
 
 func TestCompletionZsh(t *testing.T) {
 	env := newTestEnv(t)
-
 	stdout, _, code := env.run("--completion", "zsh")
 	assertExitCode(t, code, 0)
-	assertContains(t, stdout, "#compdef bj")
-	assertContains(t, stdout, "_bj()")
+	goldenFile(t, "completion-zsh", stdout)
 }
 
 func TestInitFish(t *testing.T) {
 	env := newTestEnv(t)
-
 	stdout, _, code := env.run("--init", "fish")
 	assertExitCode(t, code, 0)
-	assertContains(t, stdout, "# bj fish shell integration")
-	assertContains(t, stdout, "__bj_prompt_info")
+	goldenFile(t, "init-fish", stdout)
 }
 
 func TestInitZsh(t *testing.T) {
 	env := newTestEnv(t)
-
 	stdout, _, code := env.run("--init", "zsh")
 	assertExitCode(t, code, 0)
-	assertContains(t, stdout, "# bj zsh shell integration")
-	assertContains(t, stdout, "__bj_prompt_info")
+	goldenFile(t, "init-zsh", stdout)
 }
 
 // =============================================================================

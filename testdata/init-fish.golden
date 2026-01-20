@@ -1,0 +1,17 @@
+# bj fish shell integration
+# Setup: echo 'bj --init fish | source' >> ~/.config/fish/config.fish
+# Completions are automatically installed to ~/.config/fish/completions/bj.fish
+
+function __bj_prompt_info
+    set -l running (bj --ids --running 2>/dev/null | wc -l | string trim)
+    if test -n "$running" -a "$running" -gt 0
+        echo -n "[bj:$running] "
+    end
+end
+
+# To use in your prompt, add: __bj_prompt_info
+# Example fish_prompt function:
+#   function fish_prompt
+#       __bj_prompt_info
+#       # ... rest of your prompt
+#   end

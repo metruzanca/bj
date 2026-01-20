@@ -1,0 +1,27 @@
+# bj fish completions
+# Install: bj --completion fish > ~/.config/fish/completions/bj.fish
+
+# Disable file completions for bj
+complete -c bj -f
+
+# Commands
+complete -c bj -l list -d "See what bj is working on"
+complete -c bj -l running -d "Filter: only running jobs"
+complete -c bj -l failed -d "Filter: only ruined jobs"
+complete -c bj -l done -d "Filter: only successful jobs"
+complete -c bj -l logs -d "Watch bj's performance"
+complete -c bj -l kill -d "Stop a job mid-action"
+complete -c bj -l retry -d "Keep going until bj finishes"
+complete -c bj -l delay -d "Seconds to wait between retry attempts"
+complete -c bj -l id -d "Specify job ID for --retry" -xa "(bj --ids --failed 2>/dev/null)"
+complete -c bj -l prune -d "Clean up when bj is finished"
+complete -c bj -l gc -d "Find ruined jobs after a crash"
+complete -c bj -l json -d "Output in JSON format"
+complete -c bj -l help -d "Show help"
+complete -c bj -s h -d "Show help"
+complete -c bj -l completion -d "Output shell completions" -xa "fish zsh"
+complete -c bj -l init -d "Output prompt integration" -xa "fish zsh"
+
+# Job ID completion for --logs and --kill
+complete -c bj -n "__fish_seen_argument -l logs" -a "(bj --ids 2>/dev/null)" -d "Job ID"
+complete -c bj -n "__fish_seen_argument -l kill" -a "(bj --ids --running 2>/dev/null)" -d "Running job ID"

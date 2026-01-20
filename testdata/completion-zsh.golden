@@ -1,0 +1,45 @@
+#compdef bj
+# bj zsh completions
+# Install: bj --completion zsh > ~/.zsh/completions/_bj
+#          (ensure ~/.zsh/completions is in your fpath)
+
+_bj_job_ids() {
+    local -a job_ids
+    job_ids=(${(f)"$(bj --ids 2>/dev/null)"})
+    _describe -t job-ids 'job ID' job_ids
+}
+
+_bj_running_job_ids() {
+    local -a job_ids
+    job_ids=(${(f)"$(bj --ids --running 2>/dev/null)"})
+    _describe -t job-ids 'running job ID' job_ids
+}
+
+_bj_failed_job_ids() {
+    local -a job_ids
+    job_ids=(${(f)"$(bj --ids --failed 2>/dev/null)"})
+    _describe -t job-ids 'ruined job ID' job_ids
+}
+
+_bj() {
+    _arguments -C \
+        '--list[See what bj is working on]' \
+        '--running[Filter: only running jobs]' \
+        '--failed[Filter: only ruined jobs]' \
+        '--done[Filter: only successful jobs]' \
+        '--logs[Watch bj'\''s performance]:job ID:_bj_job_ids' \
+        '--kill[Stop a job mid-action]:job ID:_bj_running_job_ids' \
+        '--retry=-[Keep going until bj finishes]:max attempts:' \
+        '--delay[Seconds between retry attempts]:seconds:' \
+        '--id[Specify job ID for --retry]:job ID:_bj_failed_job_ids' \
+        '--prune[Clean up when bj is finished]' \
+        '--gc[Find ruined jobs after a crash]' \
+        '--json[Output in JSON format]' \
+        '--help[Show help]' \
+        '-h[Show help]' \
+        '--completion[Output shell completions]:shell:(fish zsh)' \
+        '--init[Output prompt integration]:shell:(fish zsh)' \
+        '*:command:_command_names'
+}
+
+_bj "$@"

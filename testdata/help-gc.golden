@@ -1,0 +1,13 @@
+bj --gc - Find jobs that ended unexpectedly
+
+Usage: bj --gc [--json]
+
+Detects orphaned jobs that appear to be running but whose process is gone
+(e.g., after a crash or reboot). These ruined jobs are marked as failed
+with exit code -1.
+
+Options:
+  --json    Output collected count as JSON
+
+Examples:
+  bj --gc           Clean up after an unexpected interruption

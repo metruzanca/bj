@@ -1,0 +1,20 @@
+bj --init - Set up shell integration
+
+Usage: bj --init <shell>
+
+Outputs shell integration code and automatically installs completions.
+Source this in your shell config for the full bj experience.
+
+Arguments:
+  shell     Shell type: fish, zsh
+
+Features:
+  - Automatically installs/updates completions
+  - Provides __bj_prompt_info function to show running job count
+
+Setup:
+  Fish: echo 'bj --init fish | source' >> ~/.config/fish/config.fish
+  Zsh:  echo 'eval "$(bj --init zsh)"' >> ~/.zshrc
+
+The prompt function shows [bj:N] when N jobs are running. Add it to your
+prompt to always know when bj is busy.

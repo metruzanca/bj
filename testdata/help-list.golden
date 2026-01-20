@@ -1,0 +1,21 @@
+bj --list - See what bj is working on
+
+Usage: bj --list [--running] [--failed] [--done] [--json]
+
+Shows all tracked jobs with their status, start time, duration, and command.
+Running jobs are shown normally, completed jobs are dimmed, ruined jobs show
+the exit code in red.
+
+Filters:
+  --running   Only show jobs that are still going
+  --failed    Only show ruined jobs (non-zero exit code)
+  --done      Only show jobs that finished successfully
+
+Options:
+  --json      Output raw job data as JSON
+
+Examples:
+  bj --list           Check how bj is doing
+  bj --list --running See what bj is actively working on
+  bj --list --failed  Review the ruined jobs
+  bj --list --json    Get the raw details for scripting

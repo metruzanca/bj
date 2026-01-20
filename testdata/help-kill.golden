@@ -1,0 +1,16 @@
+bj --kill - Make bj stop what it's doing
+
+Usage: bj --kill [id] [--json]
+
+Terminates a running job. Sends SIGTERM to the process group, stopping
+the entire job tree. If no ID is specified, kills the most recent running job.
+
+Arguments:
+  id        Job ID to kill (optional, defaults to latest running)
+
+Options:
+  --json    Output killed job info as JSON
+
+Examples:
+  bj --kill         Stop the latest job mid-stroke
+  bj --kill 5       Pull out of job #5 specifically

@@ -1,0 +1,15 @@
+bj --completion - Output shell completions
+
+Usage: bj --completion <shell>
+
+Outputs tab-completion definitions for the specified shell.
+Typically you'd redirect this to a completions file.
+
+Arguments:
+  shell     Shell type: fish, zsh
+
+Examples:
+  bj --completion fish > ~/.config/fish/completions/bj.fish
+  bj --completion zsh > ~/.zsh/completions/_bj
+
+Note: If you use --init, completions are installed automatically.

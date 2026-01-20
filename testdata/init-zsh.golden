@@ -1,0 +1,15 @@
+# bj zsh shell integration
+# Setup: echo 'eval "$(bj --init zsh)"' >> ~/.zshrc
+# Completions are automatically installed to ~/.zsh/completions/_bj
+# (ensure ~/.zsh/completions is in your fpath before compinit)
+
+__bj_prompt_info() {
+    local running
+    running=$(bj --ids --running 2>/dev/null | wc -l | tr -d ' ')
+    if [[ -n "$running" && "$running" -gt 0 ]]; then
+        echo -n "[bj:$running] "
+    fi
+}
+
+# To use in your prompt, add $(__bj_prompt_info) to your PROMPT or RPROMPT
+# Example: PROMPT='$(__bj_prompt_info)'$PROMPT

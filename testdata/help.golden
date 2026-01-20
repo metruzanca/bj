@@ -1,0 +1,40 @@
+bj - Background Jobs
+
+Give bj a command and it'll handle the rest while you sit back and relax.
+
+Usage:
+  bj <command>              Slip a command in the background
+  bj --retry[=N] <command>  Run with retry until success (or N attempts)
+  bj --list                 See what bj is working on
+  bj --logs [id]            Watch bj's performance
+  bj --kill [id]            Stop a job mid-action
+  bj --retry[=N] [--id ID]  Retry a ruined job
+  bj --prune                Clean up when bj is finished
+  bj --gc                   Find jobs that were ruined unexpectedly
+
+Shell Integration:
+  bj --completion <sh>  Output shell completions (fish, zsh)
+  bj --init <sh>        Output prompt integration (fish, zsh)
+
+Options:
+  --retry[=N]         Keep trying until success (or limit to N attempts)
+  --id ID             Specify job ID for --retry (defaults to most recent)
+  --json              Output in JSON format (works with all commands)
+  -h, --help          Show this help (use with commands for detailed help)
+
+Examples:
+  bj sleep 10               Let bj handle your sleep needs
+  bj npm install            bj npm while you grab coffee
+  bj --retry npm test       Keep testing until it passes
+  bj --retry=3 make build   Try building up to 3 times
+  bj --list                 Check how bj is doing
+  bj --logs                 See bj's latest output
+  bj --kill                 Stop the current job abruptly
+  bj --gc                   Find ruined jobs after a crash
+  bj --retry                Retry the most recent ruined job
+  bj --prune                Tidy up after a satisfying bj
+
+Shell Setup:
+  Fish: echo 'bj --init fish | source' >> ~/.config/fish/config.fish
+  Zsh:  echo 'eval "$(bj --init zsh)"' >> ~/.zshrc
+        (ensure ~/.zsh/completions is in your fpath before compinit)

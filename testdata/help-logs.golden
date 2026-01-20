@@ -1,0 +1,17 @@
+bj --logs - Watch bj's performance
+
+Usage: bj --logs [id] [--json]
+
+View the output (stdout/stderr) of a job. If no ID is specified, shows the
+most recent job's logs.
+
+Arguments:
+  id        Job ID to view (optional, defaults to latest)
+
+Options:
+  --json    Output job metadata and log content as JSON
+
+Examples:
+  bj --logs         See bj's latest output
+  bj --logs 5       Inspect a specific session
+  bj --logs --json  Get logs in JSON format

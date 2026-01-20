@@ -76,6 +76,24 @@ auto_prune_hours = 24   # Auto-delete done jobs older than N hours (0 = disabled
 - `~/.config/bj/jobs.json` - Job metadata
 - `~/.config/bj/logs/` - Log files (timestamped)
 
+## Contributing
+
+### Running Tests
+
+```bash
+go test ./...
+```
+
+### Updating Snapshots
+
+Static output (help text, completions, etc.) is tested using golden file snapshots in `testdata/`. If you intentionally change output, update the snapshots:
+
+```bash
+go test -update ./...
+```
+
+Then review the changes to `testdata/*.golden` files before committing.
+
 ---
 
 <p align="center"><a href="CHANGELOG.md">See what's new</a> · Give bj a try. You won't regret it.</p>
