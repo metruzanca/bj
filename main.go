@@ -208,7 +208,7 @@ func filterArgs(args []string, jsonFlag *bool, helpFlag *bool, retryFlagOut *int
 			*retryJobIDOut = id
 		case arg == "--running":
 			listRunning = true
-		case arg == "--failed" || arg == "--ruined":
+		case arg == "--failed":
 			listFailed = true
 		case arg == "--done":
 			listDone = true
