@@ -1,8 +1,9 @@
 # bj configuration file
 # Copy to ~/.config/bj/bj.toml and uncomment options you want to change.
 # 
-# Convention over configuration: only uncomment what you need to change.
-# This way you'll automatically get improved defaults in future versions.
+# Inspired by Alacritty's config style: everything is commented out by default.
+# Only uncomment what you need to change. This way you'll automatically get
+# improved defaults in future versions.
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Log directory
