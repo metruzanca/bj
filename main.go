@@ -28,6 +28,11 @@ var helpRequested bool
 var retryFlag int  // -1 = not set, 0 = unlimited, N = max attempts
 var retryJobID int // 0 = not set (use latest), N = specific job ID
 
+// List filter flags
+var listRunning bool
+var listFailed bool
+var listDone bool
+
 func main() {
 	// Initialize retryFlag to -1 (not set)
 	retryFlag = -1
@@ -195,6 +200,12 @@ func filterArgs(args []string, jsonFlag *bool, helpFlag *bool, retryFlagOut *int
 				os.Exit(1)
 			}
 			*retryJobIDOut = id
+		case arg == "--running":
+			listRunning = true
+		case arg == "--failed" || arg == "--ruined":
+			listFailed = true
+		case arg == "--done":
+			listDone = true
 		default:
 			filtered = append(filtered, arg)
 		}
@@ -224,18 +235,25 @@ func printUsage(command string) {
 	case "--list":
 		fmt.Println(`bj --list - See what bj is working on
 
-Usage: bj --list [--json]
+Usage: bj --list [--running] [--failed] [--done] [--json]
 
 Shows all tracked jobs with their status, start time, duration, and command.
-Running jobs are shown normally, completed jobs are dimmed, failed jobs show
+Running jobs are shown normally, completed jobs are dimmed, ruined jobs show
 the exit code in red.
 
+Filters:
+  --running   Only show jobs that are still going
+  --failed    Only show ruined jobs (non-zero exit code)
+  --done      Only show jobs that finished successfully
+
 Options:
-  --json    Output raw job data as JSON
+  --json      Output raw job data as JSON
 
 Examples:
-  bj --list         Check how bj is doing
-  bj --list --json  Get the raw details for scripting`)
+  bj --list           Check how bj is doing
+  bj --list --running See what bj is actively working on
+  bj --list --failed  Review the ruined jobs
+  bj --list --json    Get the raw details for scripting`)
 
 	case "--logs":
 		fmt.Println(`bj --logs - Watch bj's performance
@@ -473,11 +491,31 @@ func listJobs(t *tracker.Tracker) {
 		exitWithError("bj can't show you what it's got: %v", err)
 	}
 
+	// Apply filters if any are set
+	hasFilter := listRunning || listFailed || listDone
+	if hasFilter {
+		var filtered []tracker.Job
+		for _, job := range jobs {
+			if listRunning && job.ExitCode == nil {
+				filtered = append(filtered, job)
+			} else if listFailed && job.ExitCode != nil && *job.ExitCode != 0 {
+				filtered = append(filtered, job)
+			} else if listDone && job.ExitCode != nil && *job.ExitCode == 0 {
+				filtered = append(filtered, job)
+			}
+		}
+		jobs = filtered
+	}
+
 	if len(jobs) == 0 {
 		if jsonOutput {
 			outputJSON([]interface{}{})
 		} else {
-			fmt.Println("bj has nothing going on. Give it something to do!")
+			if hasFilter {
+				fmt.Println("No jobs match your criteria. bj has nothing to show.")
+			} else {
+				fmt.Println("bj has nothing going on. Give it something to do!")
+			}
 		}
 		return
 	}
@@ -862,6 +900,9 @@ complete -c bj -f
 
 # Commands
 complete -c bj -l list -d "See what bj is working on"
+complete -c bj -l running -d "Filter: only running jobs"
+complete -c bj -l failed -d "Filter: only ruined jobs"
+complete -c bj -l done -d "Filter: only successful jobs"
 complete -c bj -l logs -d "Watch bj's performance"
 complete -c bj -l kill -d "Stop a job mid-action"
 complete -c bj -l retry -d "Keep going until bj finishes"
@@ -905,6 +946,9 @@ _bj_failed_job_ids() {
 _bj() {
     _arguments -C \
         '--list[See what bj is working on]' \
+        '--running[Filter: only running jobs]' \
+        '--failed[Filter: only ruined jobs]' \
+        '--done[Filter: only successful jobs]' \
         '--logs[Watch bj'\''s performance]:job ID:_bj_job_ids' \
         '--kill[Stop a job mid-action]:job ID:_bj_running_job_ids' \
         '--retry=-[Keep going until bj finishes]:max attempts:' \
