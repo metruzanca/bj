@@ -5,14 +5,18 @@ A handy lightweight CLI tool that reliably runs commands in the background. Some
 ## Install
 
 ```bash
+# With Go
 go install github.com/metruzanca/bj@latest
+
+# With mise
+mise use -g github:metruzanca/bj
 ```
 
 ## Usage
 
 ```bash
 bj <command>       # Run command in background
-bj -l, --list      # List all jobs
+bj --list          # List all jobs
 bj --logs [id]     # View logs (latest if no id)
 bj --prune         # Clear all done jobs
 ```
@@ -22,7 +26,7 @@ bj --prune         # Clear all done jobs
 ```bash
 bj npm install          # Run npm install in background
 bj make build           # Run make build in background
-bj -l                   # Show job list with status
+bj --list               # Show job list with status
 bj --logs               # View latest job's output
 bj --logs 3             # View output from job #3
 ```
