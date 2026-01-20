@@ -110,7 +110,7 @@ func main() {
 		if len(args) < 2 {
 			exitWithError("Usage: bj --init <fish|zsh>")
 		}
-		printInit(args[1])
+		printInit(args[1], cfg, t)
 
 	case arg == "--list":
 		listJobs(t)
@@ -856,7 +856,14 @@ func printCompletion(shell string) {
 	}
 }
 
-func printInit(shell string) {
+func printInit(shell string, cfg *config.Config, t *tracker.Tracker) {
+	// Run housekeeping silently on shell init
+	// This is a good time to clean up orphaned jobs and auto-prune
+	t.GarbageCollect()
+	if cfg.AutoPruneHours > 0 {
+		t.PruneOlderThan(time.Duration(cfg.AutoPruneHours) * time.Hour)
+	}
+
 	switch shell {
 	case "fish":
 		// Write completions file if needed, then output prompt init
