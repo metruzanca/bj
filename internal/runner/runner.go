@@ -118,7 +118,8 @@ func (r *Runner) Run(command string) (int, error) {
 
 // RunWithRetry spawns a command that will retry on failure
 // maxAttempts of 0 means unlimited retries until success
-func (r *Runner) RunWithRetry(command string, pwd string, maxAttempts int) (int, error) {
+// delaySecs is the delay between retries in seconds
+func (r *Runner) RunWithRetry(command string, pwd string, maxAttempts int, delaySecs int) (int, error) {
 	// Ensure log directory exists
 	if err := r.config.EnsureLogDir(); err != nil {
 		return 0, fmt.Errorf("failed to create log directory: %w", err)
@@ -179,11 +180,11 @@ while true; do
     %s --complete %d 0
     exit 0
   fi
-  echo "=== Attempt $attempt failed (exit $exitcode), trying again... ===" 
+  echo "=== Attempt $attempt ruined (exit $exitcode), trying again... ===" 
   attempt=$((attempt + 1))
-  sleep 1
+  sleep %d
 done`,
-			userShell, shellQuote(command), shellQuote(selfPath), jobID)
+			userShell, shellQuote(command), shellQuote(selfPath), jobID, delaySecs)
 	} else {
 		// Limited retries
 		wrapperCmd = fmt.Sprintf(`
@@ -198,15 +199,15 @@ while [ $attempt -le $max ]; do
     exit 0
   fi
   if [ $attempt -lt $max ]; then
-    echo "=== Attempt $attempt failed (exit $exitcode), trying again... ===" 
+    echo "=== Attempt $attempt ruined (exit $exitcode), trying again... ===" 
   fi
   attempt=$((attempt + 1))
-  sleep 1
+  sleep %d
 done
-echo "=== All %d attempts failed ===" 
+echo "=== All %d attempts ruined ===" 
 %s --complete %d $exitcode`,
 			maxAttempts, userShell, shellQuote(command), shellQuote(selfPath), jobID,
-			maxAttempts, shellQuote(selfPath), jobID)
+			delaySecs, maxAttempts, shellQuote(selfPath), jobID)
 	}
 
 	cmd := exec.Command("/bin/sh", "-c", wrapperCmd)

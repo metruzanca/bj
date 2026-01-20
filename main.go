@@ -25,8 +25,9 @@ const (
 // Global flags
 var jsonOutput bool
 var helpRequested bool
-var retryFlag int  // -1 = not set, 0 = unlimited, N = max attempts
-var retryJobID int // 0 = not set (use latest), N = specific job ID
+var retryFlag int    // -1 = not set, 0 = unlimited, N = max attempts
+var retryJobID int   // 0 = not set (use latest), N = specific job ID
+var retryDelay int   // delay in seconds between retries (default 1)
 
 // List filter flags
 var listRunning bool
@@ -34,8 +35,9 @@ var listFailed bool
 var listDone bool
 
 func main() {
-	// Initialize retryFlag to -1 (not set)
+	// Initialize retryFlag to -1 (not set) and delay to 1 second
 	retryFlag = -1
+	retryDelay = 1
 
 	// Check for --json, --help, --retry[=N], and --id flags anywhere in args
 	args := filterArgs(os.Args[1:], &jsonOutput, &helpRequested, &retryFlag, &retryJobID)
@@ -86,10 +88,10 @@ func main() {
 		if len(args) > 0 {
 			// Run new command with retry
 			command := strings.Join(args, " ")
-			runCommandWithRetry(cfg, t, command, retryFlag)
+			runCommandWithRetry(cfg, t, command, retryFlag, retryDelay)
 		} else {
 			// Retry existing job
-			retryExistingJob(cfg, t, retryJobID, retryFlag)
+			retryExistingJob(cfg, t, retryJobID, retryFlag, retryDelay)
 		}
 		return
 	}
@@ -206,6 +208,27 @@ func filterArgs(args []string, jsonFlag *bool, helpFlag *bool, retryFlagOut *int
 			listFailed = true
 		case arg == "--done":
 			listDone = true
+		case arg == "--delay":
+			// --delay requires a following number
+			if i+1 >= len(args) {
+				fmt.Fprintln(os.Stderr, "--delay needs a number of seconds")
+				os.Exit(1)
+			}
+			i++
+			d, err := strconv.Atoi(args[i])
+			if err != nil || d < 0 {
+				fmt.Fprintf(os.Stderr, "bj needs a non-negative delay, not '%s'\n", args[i])
+				os.Exit(1)
+			}
+			retryDelay = d
+		case strings.HasPrefix(arg, "--delay="):
+			val := strings.TrimPrefix(arg, "--delay=")
+			d, err := strconv.Atoi(val)
+			if err != nil || d < 0 {
+				fmt.Fprintf(os.Stderr, "bj needs a non-negative delay, not '%s'\n", val)
+				os.Exit(1)
+			}
+			retryDelay = d
 		default:
 			filtered = append(filtered, arg)
 		}
@@ -325,25 +348,27 @@ Examples:
 		fmt.Println(`bj --retry - Keep going until bj finishes the job
 
 Usage:
-  bj --retry[=N] <command>     Run a new command with retry
-  bj --retry[=N] [--id ID]     Retry an existing failed job
+  bj --retry[=N] [--delay S] <command>   Run a new command with retry
+  bj --retry[=N] [--delay S] [--id ID]   Retry an existing ruined job
 
 The --retry flag can be used two ways:
   1. With a command: runs the command, retrying on failure
-  2. Without a command: retries an existing failed job
+  2. Without a command: retries an existing ruined job
 
 Options:
-  --retry       Keep teasing until success (no limit)
-  --retry=N     Stop after N attempts (deny after N tries)
-  --id ID       Specify which failed job to retry (defaults to most recent)
-  --json        Output job info as JSON
+  --retry         Keep teasing until success (no limit)
+  --retry=N       Stop after N attempts (deny after N tries)
+  --delay S       Wait S seconds between attempts (default: 1)
+  --id ID         Specify which ruined job to retry (defaults to most recent)
+  --json          Output job info as JSON
 
 Examples:
-  bj --retry npm test          Keep running tests until they pass
-  bj --retry=3 make build      Try building up to 3 times
-  bj --retry                   Retry the most recent failure
-  bj --retry --id 5            Retry job #5 until success
-  bj --retry=3 --id 5          Retry job #5 up to 3 times`)
+  bj --retry npm test              Keep running tests until they pass
+  bj --retry=3 make build          Try building up to 3 times
+  bj --retry --delay 5 curl ...    Wait 5 seconds between attempts
+  bj --retry                       Retry the most recent ruined job
+  bj --retry --id 5                Retry job #5 until success
+  bj --retry=3 --delay 10 --id 5   Retry job #5 up to 3 times, 10s apart`)
 
 	case "--completion":
 		fmt.Println(`bj --completion - Output shell completions
@@ -661,14 +686,14 @@ func killJob(t *tracker.Tracker, jobID int) {
 }
 
 // runCommandWithRetry runs a new command with retry logic
-func runCommandWithRetry(cfg *config.Config, t *tracker.Tracker, command string, maxAttempts int) {
+func runCommandWithRetry(cfg *config.Config, t *tracker.Tracker, command string, maxAttempts int, delaySecs int) {
 	pwd, err := os.Getwd()
 	if err != nil {
 		exitWithError("bj couldn't figure out where you are: %v", err)
 	}
 
 	r := runner.New(cfg, t)
-	jobID, err := r.RunWithRetry(command, pwd, maxAttempts)
+	jobID, err := r.RunWithRetry(command, pwd, maxAttempts, delaySecs)
 	if err != nil {
 		exitWithError("bj couldn't get it up: %v", err)
 	}
@@ -679,6 +704,7 @@ func runCommandWithRetry(cfg *config.Config, t *tracker.Tracker, command string,
 			"command":      command,
 			"status":       "started",
 			"max_attempts": maxAttempts,
+			"delay_secs":   delaySecs,
 		})
 	} else {
 		if maxAttempts == 0 {
@@ -692,7 +718,7 @@ func runCommandWithRetry(cfg *config.Config, t *tracker.Tracker, command string,
 }
 
 // retryExistingJob retries a failed job (or most recent failure if jobID is 0)
-func retryExistingJob(cfg *config.Config, t *tracker.Tracker, jobID int, maxAttempts int) {
+func retryExistingJob(cfg *config.Config, t *tracker.Tracker, jobID int, maxAttempts int, delaySecs int) {
 	var job *tracker.Job
 	var err error
 
@@ -710,9 +736,9 @@ func retryExistingJob(cfg *config.Config, t *tracker.Tracker, jobID int, maxAtte
 		}
 		if job == nil {
 			if jsonOutput {
-				exitWithError("no failed jobs to retry")
+				exitWithError("no ruined jobs to retry")
 			}
-			fmt.Println("bj hasn't failed you yet. Nothing to retry!")
+			fmt.Println("bj hasn't ruined anything yet. Nothing to retry!")
 			os.Exit(0)
 		}
 	} else {
@@ -735,7 +761,7 @@ func retryExistingJob(cfg *config.Config, t *tracker.Tracker, jobID int, maxAtte
 
 	// Run the job with retry wrapper
 	r := runner.New(cfg, t)
-	newJobID, err := r.RunWithRetry(job.Command, job.PWD, maxAttempts)
+	newJobID, err := r.RunWithRetry(job.Command, job.PWD, maxAttempts, delaySecs)
 	if err != nil {
 		exitWithError("bj couldn't get started again: %v", err)
 	}
@@ -746,6 +772,7 @@ func retryExistingJob(cfg *config.Config, t *tracker.Tracker, jobID int, maxAtte
 			"command":      job.Command,
 			"status":       "started",
 			"max_attempts": maxAttempts,
+			"delay_secs":   delaySecs,
 			"original_job": job.ID,
 		})
 	} else {
@@ -906,6 +933,7 @@ complete -c bj -l done -d "Filter: only successful jobs"
 complete -c bj -l logs -d "Watch bj's performance"
 complete -c bj -l kill -d "Stop a job mid-action"
 complete -c bj -l retry -d "Keep going until bj finishes"
+complete -c bj -l delay -d "Seconds to wait between retry attempts"
 complete -c bj -l id -d "Specify job ID for --retry" -xa "(bj --list --json 2>/dev/null | jq -r '.[] | select(.exit_code != null and .exit_code != 0) | .id' 2>/dev/null)"
 complete -c bj -l prune -d "Clean up when bj is finished"
 complete -c bj -l gc -d "Find ruined jobs after a crash"
@@ -952,6 +980,7 @@ _bj() {
         '--logs[Watch bj'\''s performance]:job ID:_bj_job_ids' \
         '--kill[Stop a job mid-action]:job ID:_bj_running_job_ids' \
         '--retry=-[Keep going until bj finishes]:max attempts:' \
+        '--delay[Seconds between retry attempts]:seconds:' \
         '--id[Specify job ID for --retry]:job ID:_bj_failed_job_ids' \
         '--prune[Clean up when bj is finished]' \
         '--gc[Find ruined jobs after a crash]' \
