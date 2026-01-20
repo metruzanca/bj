@@ -301,24 +301,32 @@ func (t *Tracker) Kill(id int) (*Job, error) {
 
 	for i := range jobs {
 		if jobs[i].ID == id {
-			job := jobs[i]
-
 			// Check if job is still running
-			if job.ExitCode != nil {
+			if jobs[i].ExitCode != nil {
 				return nil, fmt.Errorf("job %d already finished", id)
 			}
 
-			if job.PID == 0 {
+			if jobs[i].PID == 0 {
 				return nil, fmt.Errorf("job %d has no PID recorded", id)
 			}
 
 			// Send SIGTERM to the process group (negative PID)
 			// This kills the entire process tree since we use Setsid
-			if err := syscall.Kill(-job.PID, syscall.SIGTERM); err != nil {
+			if err := syscall.Kill(-jobs[i].PID, syscall.SIGTERM); err != nil {
 				return nil, fmt.Errorf("failed to terminate process: %w", err)
 			}
 
-			return &job, nil
+			// Mark job as killed (exit code -15 = killed by SIGTERM)
+			exitCode := -15
+			now := time.Now()
+			jobs[i].ExitCode = &exitCode
+			jobs[i].EndTime = &now
+
+			if err := t.save(jobs); err != nil {
+				return nil, fmt.Errorf("failed to save jobs: %w", err)
+			}
+
+			return &jobs[i], nil
 		}
 	}
 

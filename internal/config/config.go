@@ -20,7 +20,11 @@ type Config struct {
 }
 
 // ConfigDir returns the bj config directory path
+// Can be overridden with BJ_CONFIG_DIR environment variable (useful for testing)
 func ConfigDir() (string, error) {
+	if dir := os.Getenv("BJ_CONFIG_DIR"); dir != "" {
+		return dir, nil
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
