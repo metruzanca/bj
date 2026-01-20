@@ -63,23 +63,26 @@ func main() {
 		t.PruneOlderThan(time.Duration(cfg.AutoPruneHours) * time.Hour)
 	}
 
-	switch arg {
-	case "--completion":
+	switch {
+	case arg == "--completion":
 		if len(args) < 2 {
 			exitWithError("Usage: bj --completion <fish|zsh>")
 		}
 		printCompletion(args[1])
 
-	case "--init":
+	case arg == "--init":
 		if len(args) < 2 {
 			exitWithError("Usage: bj --init <fish|zsh>")
 		}
 		printInit(args[1])
 
-	case "--list":
+	case arg == "--list":
 		listJobs(t)
 
-	case "--logs":
+	case arg == "--retry" || strings.HasPrefix(arg, "--retry="):
+		retryJob(cfg, t, args)
+
+	case arg == "--logs":
 		var jobID int
 		if len(args) > 1 {
 			id, err := strconv.Atoi(args[1])
@@ -90,10 +93,10 @@ func main() {
 		}
 		viewLogs(cfg, t, jobID)
 
-	case "--prune":
+	case arg == "--prune":
 		pruneJobs(t)
 
-	case "--complete":
+	case arg == "--complete":
 		// Internal command: mark job as complete
 		if len(args) < 3 {
 			fmt.Fprintf(os.Stderr, "Usage: bj --complete <job_id> <exit_code>\n")
@@ -203,6 +206,28 @@ Options:
 Examples:
   bj --prune        Tidy up after a satisfying bj`)
 
+	case "--retry":
+		fmt.Println(`bj --retry - Keep going until bj finishes the job
+
+Usage: bj --retry[=N] [id] [--json]
+
+Re-runs a failed job. bj will keep trying until it succeeds or hits the limit.
+If no job ID is given, retries the most recent failure.
+
+Arguments:
+  id        Job ID to retry (optional, defaults to latest failed job)
+
+Options:
+  --retry       Keep teasing until success (no limit)
+  --retry=N     Stop after N attempts (deny after N tries)
+  --json        Output job info as JSON
+
+Examples:
+  bj --retry          Try the last failure again, don't stop until it's done
+  bj --retry 5        Retry job #5 until success
+  bj --retry=3        Give up after 3 attempts
+  bj --retry=3 5      Retry job #5 up to 3 times`)
+
 	case "--completion":
 		fmt.Println(`bj --completion - Output shell completions
 
@@ -251,6 +276,7 @@ Usage:
   bj <command>        Slip a command in the background
   bj --list           See what bj is working on
   bj --logs [id]      Watch bj's performance (latest job if no id specified)
+  bj --retry[=N] [id] Keep at it until bj finishes (or give up after N)
   bj --prune          Clean up when bj is finished
 
 Shell Integration:
@@ -268,6 +294,8 @@ Examples:
   bj --list --json    Get the raw details
   bj --logs           See bj's latest output
   bj --logs 5         Inspect a specific session
+  bj --retry          Try again until bj succeeds
+  bj --retry=3        Give up after 3 attempts
   bj --prune          Tidy up after a satisfying bj
 
 Shell Setup:
@@ -439,6 +467,96 @@ func pruneJobs(t *tracker.Tracker) {
 	}
 }
 
+func retryJob(cfg *config.Config, t *tracker.Tracker, args []string) {
+	// Parse --retry or --retry=N
+	var maxAttempts int // 0 means unlimited (keep going until success)
+	var jobID int
+
+	arg := args[0]
+	if strings.HasPrefix(arg, "--retry=") {
+		val := strings.TrimPrefix(arg, "--retry=")
+		n, err := strconv.Atoi(val)
+		if err != nil || n < 1 {
+			exitWithError("bj needs a positive number for retry limit, not '%s'", val)
+		}
+		maxAttempts = n
+	}
+
+	// Get job ID - either from args or use latest failed job
+	if len(args) > 1 {
+		id, err := strconv.Atoi(args[1])
+		if err != nil {
+			exitWithError("bj needs a valid job ID, not '%s'", args[1])
+		}
+		jobID = id
+	}
+
+	var job *tracker.Job
+	var err error
+
+	if jobID == 0 {
+		// Find the most recent failed job
+		jobs, err := t.List()
+		if err != nil {
+			exitWithError("bj can't check its history: %v", err)
+		}
+		for _, j := range jobs {
+			if j.ExitCode != nil && *j.ExitCode != 0 {
+				job = &j
+				break
+			}
+		}
+		if job == nil {
+			if jsonOutput {
+				exitWithError("no failed jobs to retry")
+			}
+			fmt.Println("bj hasn't failed you yet. Nothing to retry!")
+			os.Exit(0)
+		}
+	} else {
+		job, err = t.Get(jobID)
+		if err != nil {
+			exitWithError("bj can't find that one: %v", err)
+		}
+		if job == nil {
+			exitWithError("Job %d? bj doesn't remember that.", jobID)
+		}
+	}
+
+	// Check if job actually failed
+	if job.ExitCode == nil {
+		exitWithError("Job %d is still going. bj doesn't stop until it's done.", job.ID)
+	}
+	if *job.ExitCode == 0 {
+		exitWithError("Job %d already finished successfully. No need to go again.", job.ID)
+	}
+
+	// Run the job with retry wrapper
+	r := runner.New(cfg, t)
+	newJobID, err := r.RunWithRetry(job.Command, job.PWD, maxAttempts)
+	if err != nil {
+		exitWithError("bj couldn't get started again: %v", err)
+	}
+
+	if jsonOutput {
+		outputJSON(map[string]interface{}{
+			"id":           newJobID,
+			"command":      job.Command,
+			"status":       "started",
+			"max_attempts": maxAttempts,
+			"original_job": job.ID,
+		})
+	} else {
+		if maxAttempts == 0 {
+			fmt.Printf("[%d] bj will keep edging until it succeeds: %s\n", newJobID, job.Command)
+		} else if maxAttempts == 1 {
+			fmt.Printf("[%d] bj is giving it one more go: %s\n", newJobID, job.Command)
+		} else {
+			fmt.Printf("[%d] bj will tease up to %d times before giving up: %s\n", newJobID, maxAttempts, job.Command)
+		}
+	}
+}
+
 func viewLogs(cfg *config.Config, t *tracker.Tracker, jobID int) {
 	var job *tracker.Job
 	var err error
@@ -581,6 +699,7 @@ complete -c bj -f
 # Commands
 complete -c bj -l list -d "See what bj is working on"
 complete -c bj -l logs -d "Watch bj's performance"
+complete -c bj -l retry -d "Keep going until bj finishes"
 complete -c bj -l prune -d "Clean up when bj is finished"
 complete -c bj -l json -d "Output in JSON format"
 complete -c bj -l help -d "Show help"
@@ -588,8 +707,9 @@ complete -c bj -s h -d "Show help"
 complete -c bj -l completion -d "Output shell completions" -xa "fish zsh"
 complete -c bj -l init -d "Output prompt integration" -xa "fish zsh"
 
-# Job ID completion for --logs
+# Job ID completion for --logs and --retry
 complete -c bj -n "__fish_seen_argument -l logs" -a "(bj --list --json 2>/dev/null | jq -r '.[].id' 2>/dev/null)" -d "Job ID"
+complete -c bj -n "__fish_seen_argument -l retry" -a "(bj --list --json 2>/dev/null | jq -r '.[] | select(.exit_code != null and .exit_code != 0) | .id' 2>/dev/null)" -d "Failed job ID"
 `
 
 const zshCompletion = `#compdef bj
@@ -603,10 +723,17 @@ _bj_job_ids() {
     _describe -t job-ids 'job ID' job_ids
 }
 
+_bj_failed_job_ids() {
+    local -a job_ids
+    job_ids=(${(f)"$(bj --list --json 2>/dev/null | jq -r '.[] | select(.exit_code != null and .exit_code != 0) | .id' 2>/dev/null)"})
+    _describe -t job-ids 'failed job ID' job_ids
+}
+
 _bj() {
     _arguments -C \
         '--list[See what bj is working on]' \
         '--logs[Watch bj'\''s performance]:job ID:_bj_job_ids' \
+        '--retry=-[Keep going until bj finishes]:max attempts:' \
         '--prune[Clean up when bj is finished]' \
         '--json[Output in JSON format]' \
         '--help[Show help]' \

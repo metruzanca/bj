@@ -105,6 +105,116 @@ func (r *Runner) Run(command string) (int, error) {
 	return jobID, nil
 }
 
+// RunWithRetry spawns a command that will retry on failure
+// maxAttempts of 0 means unlimited retries until success
+func (r *Runner) RunWithRetry(command string, pwd string, maxAttempts int) (int, error) {
+	// Ensure log directory exists
+	if err := r.config.EnsureLogDir(); err != nil {
+		return 0, fmt.Errorf("failed to create log directory: %w", err)
+	}
+
+	logDir, err := r.config.LogDirPath()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get log directory: %w", err)
+	}
+
+	// Create log file with timestamp
+	timestamp := time.Now().Format("20060102-150405")
+	logFileName := fmt.Sprintf("%s.log", timestamp)
+	logPath := filepath.Join(logDir, logFileName)
+
+	// Create the log file
+	logFile, err := os.Create(logPath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create log file: %w", err)
+	}
+
+	// Add job to tracker first to get ID
+	jobID, err := r.tracker.Add(command, pwd, logPath)
+	if err != nil {
+		logFile.Close()
+		return 0, fmt.Errorf("failed to track job: %w", err)
+	}
+
+	// Get user's shell from environment for running the command
+	userShell := os.Getenv("SHELL")
+	if userShell == "" {
+		userShell = "/bin/sh"
+	}
+
+	// Get the path to our own executable
+	selfPath, err := os.Executable()
+	if err != nil {
+		logFile.Close()
+		return 0, fmt.Errorf("failed to get executable path: %w", err)
+	}
+
+	// Create a wrapper that retries until success or max attempts
+	// The wrapper script handles the retry logic
+	var wrapperCmd string
+	if maxAttempts == 0 {
+		// Unlimited retries - keep going until success
+		wrapperCmd = fmt.Sprintf(`
+attempt=1
+while true; do
+  echo "=== Attempt $attempt ===" 
+  %s -c %s
+  exitcode=$?
+  if [ $exitcode -eq 0 ]; then
+    %s --complete %d 0
+    exit 0
+  fi
+  echo "=== Attempt $attempt failed (exit $exitcode), trying again... ===" 
+  attempt=$((attempt + 1))
+  sleep 1
+done`,
+			userShell, shellQuote(command), shellQuote(selfPath), jobID)
+	} else {
+		// Limited retries
+		wrapperCmd = fmt.Sprintf(`
+attempt=1
+max=%d
+while [ $attempt -le $max ]; do
+  echo "=== Attempt $attempt of $max ===" 
+  %s -c %s
+  exitcode=$?
+  if [ $exitcode -eq 0 ]; then
+    %s --complete %d 0
+    exit 0
+  fi
+  if [ $attempt -lt $max ]; then
+    echo "=== Attempt $attempt failed (exit $exitcode), trying again... ===" 
+  fi
+  attempt=$((attempt + 1))
+  sleep 1
+done
+echo "=== All %d attempts failed ===" 
+%s --complete %d $exitcode`,
+			maxAttempts, userShell, shellQuote(command), shellQuote(selfPath), jobID,
+			maxAttempts, shellQuote(selfPath), jobID)
+	}
+
+	cmd := exec.Command("/bin/sh", "-c", wrapperCmd)
+	cmd.Dir = pwd
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
+
+	// Detach the process so it survives parent exit
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setsid: true,
+	}
+
+	if err := cmd.Start(); err != nil {
+		logFile.Close()
+		return 0, fmt.Errorf("failed to start command: %w", err)
+	}
+
+	// Close our handle to the log file - the child process has its own fd
+	logFile.Close()
+
+	return jobID, nil
+}
+
 // Complete marks a job as completed (called by the wrapper)
 func (r *Runner) Complete(jobID int, exitCode int) error {
 	return r.tracker.Complete(jobID, exitCode)
