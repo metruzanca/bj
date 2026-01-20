@@ -190,7 +190,7 @@ func filterArgs(args []string, jsonFlag *bool, helpFlag *bool, retryFlagOut *int
 			}
 			*retryFlagOut = n
 		case arg == "--id":
-			// --id requires a following number
+			// --id requires a following positive number
 			if i+1 >= len(args) {
 				fmt.Fprintln(os.Stderr, "--id needs a job ID to go with it")
 				os.Exit(1)
@@ -199,6 +199,10 @@ func filterArgs(args []string, jsonFlag *bool, helpFlag *bool, retryFlagOut *int
 			id, err := strconv.Atoi(args[i])
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "bj needs a valid job ID, not '%s'\n", args[i])
+				os.Exit(1)
+			}
+			if id < 1 {
+				fmt.Fprintf(os.Stderr, "Job IDs start at 1. '%d' won't satisfy bj.\n", id)
 				os.Exit(1)
 			}
 			*retryJobIDOut = id
