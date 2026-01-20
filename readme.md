@@ -96,5 +96,16 @@ Then review the changes to `testdata/*.golden` files before committing.
 
 ---
 
+<details>
+<summary>How AI was used</summary>
+
+This project was written entirely through agentic coding. I ([@metruzanca](https://github.com/metruzanca)) didn't write a single line of code—everything was done through prompts with Claude Opus 4.5.
+
+I'm currently using `bj` in my own dev environment and it's working well. I originally just wanted to see how far I could get with pure agentic coding, and after it nailed the core functionality (which was all I actually needed), I was having too much fun and kept adding features.
+
+For context: I've been writing code professionally for 6 years and coding even longer than that, so while I didn't write the code, I wasn't flying blind when steering the agent in the right direction.
+
+</details>
+
 <p align="center"><a href="CHANGELOG.md">See what's new</a> · Give bj a try. You won't regret it.</p>
 <p align="center">Vibe Coded with <3</p>
