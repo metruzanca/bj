@@ -66,6 +66,11 @@ func main() {
 		exitWithError("--id only makes sense with --retry. They go together like... well, you know.")
 	}
 
+	// Validate --delay is only used with --retry
+	if retryDelay != 1 && retryFlag < 0 {
+		exitWithError("--delay without --retry? bj needs something to delay between.")
+	}
+
 	// Load config
 	cfg, err := config.Load()
 	if err != nil {
@@ -114,6 +119,9 @@ func main() {
 
 	case arg == "--list":
 		listJobs(t)
+
+	case arg == "--ids":
+		printJobIDs(t)
 
 	case arg == "--logs":
 		var jobID int
@@ -306,8 +314,8 @@ Examples:
 
 Usage: bj --prune [--json]
 
-Removes all successfully completed jobs (exit code 0) from the job list.
-Failed jobs are kept for review. Log files are not deleted.
+Removes all successfully completed jobs (exit code 0) from the job list
+and deletes their log files. Failed jobs are kept for review.
 
 Options:
   --json    Output prune count as JSON
@@ -622,6 +630,29 @@ func listJobs(t *tracker.Tracker) {
 		} else {
 			fmt.Println(line)
 		}
+	}
+}
+
+// printJobIDs outputs job IDs for shell completion (no jq needed)
+// Respects --running, --failed, --done filters
+func printJobIDs(t *tracker.Tracker) {
+	jobs, err := t.List()
+	if err != nil {
+		os.Exit(1) // Silent fail for completions
+	}
+
+	for _, job := range jobs {
+		// Apply filters if any are set
+		if listRunning && job.ExitCode != nil {
+			continue
+		}
+		if listFailed && (job.ExitCode == nil || *job.ExitCode == 0) {
+			continue
+		}
+		if listDone && (job.ExitCode == nil || *job.ExitCode != 0) {
+			continue
+		}
+		fmt.Println(job.ID)
 	}
 }
 
@@ -945,7 +976,7 @@ complete -c bj -l logs -d "Watch bj's performance"
 complete -c bj -l kill -d "Stop a job mid-action"
 complete -c bj -l retry -d "Keep going until bj finishes"
 complete -c bj -l delay -d "Seconds to wait between retry attempts"
-complete -c bj -l id -d "Specify job ID for --retry" -xa "(bj --list --json 2>/dev/null | jq -r '.[] | select(.exit_code != null and .exit_code != 0) | .id' 2>/dev/null)"
+complete -c bj -l id -d "Specify job ID for --retry" -xa "(bj --ids --failed 2>/dev/null)"
 complete -c bj -l prune -d "Clean up when bj is finished"
 complete -c bj -l gc -d "Find ruined jobs after a crash"
 complete -c bj -l json -d "Output in JSON format"
@@ -955,8 +986,8 @@ complete -c bj -l completion -d "Output shell completions" -xa "fish zsh"
 complete -c bj -l init -d "Output prompt integration" -xa "fish zsh"
 
 # Job ID completion for --logs and --kill
-complete -c bj -n "__fish_seen_argument -l logs" -a "(bj --list --json 2>/dev/null | jq -r '.[].id' 2>/dev/null)" -d "Job ID"
-complete -c bj -n "__fish_seen_argument -l kill" -a "(bj --list --json 2>/dev/null | jq -r '.[] | select(.exit_code == null) | .id' 2>/dev/null)" -d "Running job ID"
+complete -c bj -n "__fish_seen_argument -l logs" -a "(bj --ids 2>/dev/null)" -d "Job ID"
+complete -c bj -n "__fish_seen_argument -l kill" -a "(bj --ids --running 2>/dev/null)" -d "Running job ID"
 `
 
 const zshCompletion = `#compdef bj
@@ -966,19 +997,19 @@ const zshCompletion = `#compdef bj
 
 _bj_job_ids() {
     local -a job_ids
-    job_ids=(${(f)"$(bj --list --json 2>/dev/null | jq -r '.[].id' 2>/dev/null)"})
+    job_ids=(${(f)"$(bj --ids 2>/dev/null)"})
     _describe -t job-ids 'job ID' job_ids
 }
 
 _bj_running_job_ids() {
     local -a job_ids
-    job_ids=(${(f)"$(bj --list --json 2>/dev/null | jq -r '.[] | select(.exit_code == null) | .id' 2>/dev/null)"})
+    job_ids=(${(f)"$(bj --ids --running 2>/dev/null)"})
     _describe -t job-ids 'running job ID' job_ids
 }
 
 _bj_failed_job_ids() {
     local -a job_ids
-    job_ids=(${(f)"$(bj --list --json 2>/dev/null | jq -r '.[] | select(.exit_code != null and .exit_code != 0) | .id' 2>/dev/null)"})
+    job_ids=(${(f)"$(bj --ids --failed 2>/dev/null)"})
     _describe -t job-ids 'ruined job ID' job_ids
 }
 
@@ -1011,7 +1042,7 @@ const fishInit = `# bj fish shell integration
 # Completions are automatically installed to ~/.config/fish/completions/bj.fish
 
 function __bj_prompt_info
-    set -l running (bj --list --json 2>/dev/null | jq '[.[] | select(.exit_code == null)] | length' 2>/dev/null)
+    set -l running (bj --ids --running 2>/dev/null | wc -l | string trim)
     if test -n "$running" -a "$running" -gt 0
         echo -n "[bj:$running] "
     end
@@ -1032,7 +1063,7 @@ const zshInit = `# bj zsh shell integration
 
 __bj_prompt_info() {
     local running
-    running=$(bj --list --json 2>/dev/null | jq '[.[] | select(.exit_code == null)] | length' 2>/dev/null)
+    running=$(bj --ids --running 2>/dev/null | wc -l | tr -d ' ')
     if [[ -n "$running" && "$running" -gt 0 ]]; then
         echo -n "[bj:$running] "
     fi

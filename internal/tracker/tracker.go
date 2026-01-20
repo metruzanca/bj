@@ -414,10 +414,20 @@ func (t *Tracker) GarbageCollect() (int, error) {
 		return 0, fmt.Errorf("failed to load jobs: %w", err)
 	}
 
+	// Grace period: don't GC jobs started less than 5 seconds ago
+	// This avoids false positives during the window between Add() and UpdatePID()
+	gracePeriod := 5 * time.Second
+	now := time.Now()
+
 	collected := 0
 	for i := range jobs {
 		// Skip completed jobs
 		if jobs[i].ExitCode != nil {
+			continue
+		}
+
+		// Skip very recent jobs (might still be setting up)
+		if now.Sub(jobs[i].StartTime) < gracePeriod {
 			continue
 		}
 
@@ -434,7 +444,6 @@ func (t *Tracker) GarbageCollect() (int, error) {
 
 		// Mark as failed with exit code -1 (indicates abnormal termination)
 		exitCode := -1
-		now := time.Now()
 		jobs[i].ExitCode = &exitCode
 		jobs[i].EndTime = &now
 		collected++
