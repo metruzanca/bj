@@ -1,0 +1,49 @@
+# bj configuration file
+# Copy to ~/.config/bj/bj.toml and uncomment options you want to change.
+# 
+# Convention over configuration: only uncomment what you need to change.
+# This way you'll automatically get improved defaults in future versions.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Log directory
+# ─────────────────────────────────────────────────────────────────────────────
+# Where bj stores job output logs.
+# 
+# Can be:
+#   - Relative path: resolved from ~/.config/bj/
+#   - Absolute path: used as-is
+#
+# Default: "logs" (i.e. ~/.config/bj/logs/)
+#
+# log_dir = "logs"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Log viewer
+# ─────────────────────────────────────────────────────────────────────────────
+# Command used to view log files when you run `bj --logs`.
+#
+# Examples:
+#   - "less"          (default, paginated viewing)
+#   - "cat"           (dump to terminal)
+#   - "bat"           (syntax highlighting)
+#   - "code"          (open in VS Code)
+#   - "nvim"          (open in Neovim)
+#
+# Default: "less"
+#
+# viewer = "less"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Auto-prune
+# ─────────────────────────────────────────────────────────────────────────────
+# Automatically remove successfully completed jobs (exit code 0) older than
+# this many hours. Their log files are also deleted.
+#
+# Set to 0 to disable auto-pruning entirely.
+#
+# Note: Failed jobs are never auto-pruned. Use `bj --prune` to remove them
+# manually, or `bj --retry` to try again.
+#
+# Default: 24 (hours)
+#
+# auto_prune_hours = 24
