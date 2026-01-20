@@ -22,17 +22,29 @@ const (
 	colorRed   = "\033[31m"
 )
 
-// Global flag for JSON output
+// Global flags
 var jsonOutput bool
+var helpRequested bool
 
 func main() {
-	// Check for --json flag anywhere in args
-	args := filterArgs(os.Args[1:], &jsonOutput)
+	// Check for --json and --help flags anywhere in args
+	args := filterArgs(os.Args[1:], &jsonOutput, &helpRequested)
 
-	if len(args) < 1 {
-		printUsage()
+	// Handle help
+	if helpRequested || len(args) < 1 {
+		if len(args) > 0 {
+			printUsage(args[0])
+		} else {
+			printUsage("")
+		}
+		if helpRequested {
+			os.Exit(0)
+		}
 		os.Exit(1)
 	}
+
+	// Parse first argument to determine action
+	arg := args[0]
 
 	// Load config
 	cfg, err := config.Load()
@@ -51,14 +63,7 @@ func main() {
 		t.PruneOlderThan(time.Duration(cfg.AutoPruneHours) * time.Hour)
 	}
 
-	// Parse first argument to determine action
-	arg := args[0]
-
 	switch arg {
-	case "-h", "--help":
-		printUsage()
-		os.Exit(0)
-
 	case "--completion":
 		if len(args) < 2 {
 			exitWithError("Usage: bj --completion <fish|zsh>")
@@ -114,13 +119,16 @@ func main() {
 	}
 }
 
-// filterArgs removes --json flag and sets jsonOutput, returns remaining args
-func filterArgs(args []string, jsonFlag *bool) []string {
+// filterArgs removes --json and --help flags, sets flags, returns remaining args
+func filterArgs(args []string, jsonFlag *bool, helpFlag *bool) []string {
 	var filtered []string
 	for _, arg := range args {
-		if arg == "--json" {
+		switch arg {
+		case "--json":
 			*jsonFlag = true
-		} else {
+		case "--help", "-h":
+			*helpFlag = true
+		default:
 			filtered = append(filtered, arg)
 		}
 	}
@@ -144,8 +152,98 @@ func outputJSON(v interface{}) {
 	fmt.Println(string(data))
 }
 
-func printUsage() {
-	fmt.Println(`bj - Background Jobs
+func printUsage(command string) {
+	switch command {
+	case "--list":
+		fmt.Println(`bj --list - See what bj is working on
+
+Usage: bj --list [--json]
+
+Shows all tracked jobs with their status, start time, duration, and command.
+Running jobs are shown normally, completed jobs are dimmed, failed jobs show
+the exit code in red.
+
+Options:
+  --json    Output raw job data as JSON
+
+Examples:
+  bj --list         Check how bj is doing
+  bj --list --json  Get the raw details for scripting`)
+
+	case "--logs":
+		fmt.Println(`bj --logs - Watch bj's performance
+
+Usage: bj --logs [id] [--json]
+
+View the output (stdout/stderr) of a job. If no ID is specified, shows the
+most recent job's logs.
+
+Arguments:
+  id        Job ID to view (optional, defaults to latest)
+
+Options:
+  --json    Output job metadata and log content as JSON
+
+Examples:
+  bj --logs         See bj's latest output
+  bj --logs 5       Inspect a specific session
+  bj --logs --json  Get logs in JSON format`)
+
+	case "--prune":
+		fmt.Println(`bj --prune - Clean up when bj is finished
+
+Usage: bj --prune [--json]
+
+Removes all successfully completed jobs (exit code 0) from the job list.
+Failed jobs are kept for review. Log files are not deleted.
+
+Options:
+  --json    Output prune count as JSON
+
+Examples:
+  bj --prune        Tidy up after a satisfying bj`)
+
+	case "--completion":
+		fmt.Println(`bj --completion - Output shell completions
+
+Usage: bj --completion <shell>
+
+Outputs tab-completion definitions for the specified shell.
+Typically you'd redirect this to a completions file.
+
+Arguments:
+  shell     Shell type: fish, zsh
+
+Examples:
+  bj --completion fish > ~/.config/fish/completions/bj.fish
+  bj --completion zsh > ~/.zsh/completions/_bj
+
+Note: If you use --init, completions are installed automatically.`)
+
+	case "--init":
+		fmt.Println(`bj --init - Set up shell integration
+
+Usage: bj --init <shell>
+
+Outputs shell integration code and automatically installs completions.
+Source this in your shell config for the full bj experience.
+
+Arguments:
+  shell     Shell type: fish, zsh
+
+Features:
+  - Automatically installs/updates completions
+  - Provides __bj_prompt_info function to show running job count
+
+Setup:
+  Fish: echo 'bj --init fish | source' >> ~/.config/fish/config.fish
+  Zsh:  echo 'eval "$(bj --init zsh)"' >> ~/.zshrc
+
+The prompt function shows [bj:N] when N jobs are running. Add it to your
+prompt to always know when bj is busy.`)
+
+	default:
+		fmt.Println(`bj - Background Jobs
 
 Give bj a command and it'll handle the rest while you sit back and relax.
 
@@ -161,7 +259,7 @@ Shell Integration:
 
 Options:
   --json              Output in JSON format (works with all commands)
-  -h, --help          Show this help
+  -h, --help          Show this help (use with commands for detailed help)
 
 Examples:
   bj sleep 10         Let bj handle your sleep needs
@@ -176,6 +274,7 @@ Shell Setup:
   Fish: echo 'bj --init fish | source' >> ~/.config/fish/config.fish
   Zsh:  echo 'eval "$(bj --init zsh)"' >> ~/.zshrc
         (ensure ~/.zsh/completions is in your fpath before compinit)`)
+	}
 }
 
 func runCommand(cfg *config.Config, t *tracker.Tracker, command string) {
