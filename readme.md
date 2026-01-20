@@ -1,5 +1,7 @@
 # bj - Background Jobs
 
+[![Go Coverage](https://github.com/metruzanca/bj/wiki/coverage.svg)](https://raw.githack.com/wiki/metruzanca/bj/coverage.html)
+
 A handy lightweight CLI tool that reliably runs commands in the background. Sometimes `&` isn't enough and things don't detach properly. `bj` fixes that without much fuss. It goes down easy and gets the job done.
 
 ## Install
@@ -117,15 +119,20 @@ See [`.github/bj.toml`](.github/bj.toml) for a fully documented example config w
 go test ./...
 ```
 
-### Updating Snapshots
+### Testing Philosophy
 
-Static output (help text, completions, etc.) is tested using golden file snapshots in `testdata/`. If you intentionally change output, update the snapshots:
+This project is heavily snapshot-based (golden file tests). Why?
+
+1. **Simpler** - No complex assertions or mocking, just "does the output match?"
+2. **AI-resistant** - Since this project is built with agentic coding, snapshot tests are harder for AI to subtly break. There's no test logic to get wrong—either the output matches or it doesn't. An AI can't accidentally write a test that looks right but tests the wrong thing.
+
+Snapshots live in `testdata/*.golden`. When you intentionally change output:
 
 ```bash
 go test -update ./...
 ```
 
-Then review the changes to `testdata/*.golden` files before committing.
+Then review the diff to `testdata/` files before committing.
 
 ---
 
