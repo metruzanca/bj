@@ -78,5 +78,5 @@ auto_prune_hours = 24   # Auto-delete done jobs older than N hours (0 = disabled
 
 ---
 
-<p align="center">Give bj a try. You won't regret it.</p>
+<p align="center"><a href="CHANGELOG.md">See what's new</a> · Give bj a try. You won't regret it.</p>
 <p align="center">Vibe Coded with <3</p>
