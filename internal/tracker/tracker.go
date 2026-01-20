@@ -25,6 +25,7 @@ type Job struct {
 	EndTime   *time.Time `json:"end_time,omitempty"`
 	ExitCode  *int       `json:"exit_code,omitempty"`
 	LogFile   string     `json:"log_file"`
+	PID       int        `json:"pid,omitempty"`
 }
 
 // Tracker manages job metadata
@@ -256,6 +257,89 @@ func (t *Tracker) UpdateLogPath(id int, logPath string) error {
 	}
 
 	return ErrJobNotFound
+}
+
+// UpdatePID updates the process ID for a job
+func (t *Tracker) UpdatePID(id int, pid int) error {
+	lockFile, err := t.lock()
+	if err != nil {
+		return fmt.Errorf("failed to acquire lock: %w", err)
+	}
+	defer t.unlock(lockFile)
+
+	jobs, err := t.load()
+	if err != nil {
+		return fmt.Errorf("failed to load jobs: %w", err)
+	}
+
+	for i := range jobs {
+		if jobs[i].ID == id {
+			jobs[i].PID = pid
+			if err := t.save(jobs); err != nil {
+				return fmt.Errorf("failed to save jobs: %w", err)
+			}
+			return nil
+		}
+	}
+
+	return ErrJobNotFound
+}
+
+// Kill terminates a running job by sending SIGTERM to its process group
+// Returns the job that was killed, or error if not found/not running
+func (t *Tracker) Kill(id int) (*Job, error) {
+	lockFile, err := t.lock()
+	if err != nil {
+		return nil, fmt.Errorf("failed to acquire lock: %w", err)
+	}
+	defer t.unlock(lockFile)
+
+	jobs, err := t.load()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load jobs: %w", err)
+	}
+
+	for i := range jobs {
+		if jobs[i].ID == id {
+			job := jobs[i]
+
+			// Check if job is still running
+			if job.ExitCode != nil {
+				return nil, fmt.Errorf("job %d already finished", id)
+			}
+
+			if job.PID == 0 {
+				return nil, fmt.Errorf("job %d has no PID recorded", id)
+			}
+
+			// Send SIGTERM to the process group (negative PID)
+			// This kills the entire process tree since we use Setsid
+			if err := syscall.Kill(-job.PID, syscall.SIGTERM); err != nil {
+				return nil, fmt.Errorf("failed to terminate process: %w", err)
+			}
+
+			return &job, nil
+		}
+	}
+
+	return nil, ErrJobNotFound
+}
+
+// LatestRunning returns the most recently started job that is still running
+func (t *Tracker) LatestRunning() (*Job, error) {
+	jobs, err := t.List()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, j := range jobs {
+		if j.ExitCode == nil {
+			job := j
+			return &job, nil
+		}
+	}
+
+	return nil, nil
 }
 
 // pruneOldJobs removes old completed jobs to keep history bounded

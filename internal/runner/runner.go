@@ -103,6 +103,13 @@ func (r *Runner) Run(command string) (int, error) {
 		return 0, fmt.Errorf("failed to start command: %w", err)
 	}
 
+	// Save PID for potential kill later
+	if err := r.tracker.UpdatePID(jobID, cmd.Process.Pid); err != nil {
+		// Non-fatal - job will still run, just can't be killed
+		logFile.Close()
+		return jobID, nil
+	}
+
 	// Close our handle to the log file - the child process has its own fd
 	logFile.Close()
 
@@ -215,6 +222,13 @@ echo "=== All %d attempts failed ==="
 	if err := cmd.Start(); err != nil {
 		logFile.Close()
 		return 0, fmt.Errorf("failed to start command: %w", err)
+	}
+
+	// Save PID for potential kill later
+	if err := r.tracker.UpdatePID(jobID, cmd.Process.Pid); err != nil {
+		// Non-fatal - job will still run, just can't be killed
+		logFile.Close()
+		return jobID, nil
 	}
 
 	// Close our handle to the log file - the child process has its own fd
