@@ -45,22 +45,26 @@ func (r *Runner) Run(command string) (int, error) {
 		return 0, fmt.Errorf("failed to get log directory: %w", err)
 	}
 
-	// Create log file with timestamp
+	// Add job to tracker first to get ID (needed for log filename)
+	jobID, err := r.tracker.Add(command, pwd, "")
+	if err != nil {
+		return 0, fmt.Errorf("failed to track job: %w", err)
+	}
+
+	// Create log file with timestamp and job ID
 	timestamp := time.Now().Format("20060102-150405")
-	logFileName := fmt.Sprintf("%s.log", timestamp)
+	logFileName := fmt.Sprintf("%s-%d.log", timestamp, jobID)
 	logPath := filepath.Join(logDir, logFileName)
+
+	// Update tracker with actual log path
+	if err := r.tracker.UpdateLogPath(jobID, logPath); err != nil {
+		return 0, fmt.Errorf("failed to update log path: %w", err)
+	}
 
 	// Create the log file
 	logFile, err := os.Create(logPath)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create log file: %w", err)
-	}
-
-	// Add job to tracker first to get ID
-	jobID, err := r.tracker.Add(command, pwd, logPath)
-	if err != nil {
-		logFile.Close()
-		return 0, fmt.Errorf("failed to track job: %w", err)
 	}
 
 	// Get user's shell from environment for running the command
@@ -118,22 +122,26 @@ func (r *Runner) RunWithRetry(command string, pwd string, maxAttempts int) (int,
 		return 0, fmt.Errorf("failed to get log directory: %w", err)
 	}
 
-	// Create log file with timestamp
+	// Add job to tracker first to get ID (needed for log filename)
+	jobID, err := r.tracker.Add(command, pwd, "")
+	if err != nil {
+		return 0, fmt.Errorf("failed to track job: %w", err)
+	}
+
+	// Create log file with timestamp and job ID
 	timestamp := time.Now().Format("20060102-150405")
-	logFileName := fmt.Sprintf("%s.log", timestamp)
+	logFileName := fmt.Sprintf("%s-%d.log", timestamp, jobID)
 	logPath := filepath.Join(logDir, logFileName)
+
+	// Update tracker with actual log path
+	if err := r.tracker.UpdateLogPath(jobID, logPath); err != nil {
+		return 0, fmt.Errorf("failed to update log path: %w", err)
+	}
 
 	// Create the log file
 	logFile, err := os.Create(logPath)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create log file: %w", err)
-	}
-
-	// Add job to tracker first to get ID
-	jobID, err := r.tracker.Add(command, pwd, logPath)
-	if err != nil {
-		logFile.Close()
-		return 0, fmt.Errorf("failed to track job: %w", err)
 	}
 
 	// Get user's shell from environment for running the command

@@ -3,10 +3,10 @@ package tracker
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
-	"sync"
 	"syscall"
 	"time"
 
@@ -29,7 +29,6 @@ type Job struct {
 
 // Tracker manages job metadata
 type Tracker struct {
-	mu       sync.Mutex
 	path     string
 	lockPath string
 }
@@ -119,18 +118,15 @@ func (t *Tracker) nextID(jobs []Job) int {
 
 // Add creates a new job entry and returns its ID
 func (t *Tracker) Add(cmd, pwd, logFile string) (int, error) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
 	lockFile, err := t.lock()
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to acquire lock: %w", err)
 	}
 	defer t.unlock(lockFile)
 
 	jobs, err := t.load()
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to load jobs: %w", err)
 	}
 
 	job := Job{
@@ -143,7 +139,7 @@ func (t *Tracker) Add(cmd, pwd, logFile string) (int, error) {
 
 	jobs = append(jobs, job)
 	if err := t.save(jobs); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to save jobs: %w", err)
 	}
 
 	return job.ID, nil
@@ -151,18 +147,15 @@ func (t *Tracker) Add(cmd, pwd, logFile string) (int, error) {
 
 // Complete marks a job as completed with exit code and end time
 func (t *Tracker) Complete(id int, exitCode int) error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
 	lockFile, err := t.lock()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to acquire lock: %w", err)
 	}
 	defer t.unlock(lockFile)
 
 	jobs, err := t.load()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load jobs: %w", err)
 	}
 
 	for i := range jobs {
@@ -183,18 +176,15 @@ func (t *Tracker) Complete(id int, exitCode int) error {
 
 // List returns all jobs sorted by start time (newest first)
 func (t *Tracker) List() ([]Job, error) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
 	lockFile, err := t.lock()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to acquire lock: %w", err)
 	}
 	defer t.unlock(lockFile)
 
 	jobs, err := t.load()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load jobs: %w", err)
 	}
 
 	// Sort by start time descending
@@ -207,18 +197,15 @@ func (t *Tracker) List() ([]Job, error) {
 
 // Get returns a job by ID
 func (t *Tracker) Get(id int) (*Job, error) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
 	lockFile, err := t.lock()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to acquire lock: %w", err)
 	}
 	defer t.unlock(lockFile)
 
 	jobs, err := t.load()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load jobs: %w", err)
 	}
 
 	for _, j := range jobs {
@@ -243,6 +230,32 @@ func (t *Tracker) Latest() (*Job, error) {
 	}
 
 	return &jobs[0], nil
+}
+
+// UpdateLogPath updates the log file path for a job
+func (t *Tracker) UpdateLogPath(id int, logPath string) error {
+	lockFile, err := t.lock()
+	if err != nil {
+		return fmt.Errorf("failed to acquire lock: %w", err)
+	}
+	defer t.unlock(lockFile)
+
+	jobs, err := t.load()
+	if err != nil {
+		return fmt.Errorf("failed to load jobs: %w", err)
+	}
+
+	for i := range jobs {
+		if jobs[i].ID == id {
+			jobs[i].LogFile = logPath
+			if err := t.save(jobs); err != nil {
+				return fmt.Errorf("failed to save jobs: %w", err)
+			}
+			return nil
+		}
+	}
+
+	return ErrJobNotFound
 }
 
 // pruneOldJobs removes old completed jobs to keep history bounded
@@ -271,26 +284,25 @@ func (t *Tracker) pruneOldJobs(jobs []Job) []Job {
 	return result
 }
 
-// Prune removes all done jobs (exit code 0) and returns count pruned
+// Prune removes all done jobs (exit code 0), deletes their log files, and returns count pruned
 func (t *Tracker) Prune() (int, error) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
 	lockFile, err := t.lock()
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to acquire lock: %w", err)
 	}
 	defer t.unlock(lockFile)
 
 	jobs, err := t.load()
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to load jobs: %w", err)
 	}
 
 	var kept []Job
 	pruned := 0
 	for _, j := range jobs {
 		if j.ExitCode != nil && *j.ExitCode == 0 {
+			// Delete the log file (ignore errors - file may already be gone)
+			os.Remove(j.LogFile)
 			pruned++
 		} else {
 			kept = append(kept, j)
@@ -298,26 +310,23 @@ func (t *Tracker) Prune() (int, error) {
 	}
 
 	if err := t.save(kept); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to save jobs: %w", err)
 	}
 
 	return pruned, nil
 }
 
-// PruneOlderThan removes done jobs (exit code 0) older than the given duration
+// PruneOlderThan removes done jobs (exit code 0) older than the given duration, deletes their log files
 func (t *Tracker) PruneOlderThan(d time.Duration) (int, error) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
 	lockFile, err := t.lock()
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to acquire lock: %w", err)
 	}
 	defer t.unlock(lockFile)
 
 	jobs, err := t.load()
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to load jobs: %w", err)
 	}
 
 	cutoff := time.Now().Add(-d)
@@ -326,6 +335,8 @@ func (t *Tracker) PruneOlderThan(d time.Duration) (int, error) {
 	for _, j := range jobs {
 		// Prune if done (exit 0) and ended before cutoff
 		if j.ExitCode != nil && *j.ExitCode == 0 && j.EndTime != nil && j.EndTime.Before(cutoff) {
+			// Delete the log file (ignore errors - file may already be gone)
+			os.Remove(j.LogFile)
 			pruned++
 		} else {
 			kept = append(kept, j)
@@ -333,7 +344,7 @@ func (t *Tracker) PruneOlderThan(d time.Duration) (int, error) {
 	}
 
 	if err := t.save(kept); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to save jobs: %w", err)
 	}
 
 	return pruned, nil
