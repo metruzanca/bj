@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -57,6 +58,18 @@ func main() {
 	case "-h", "--help":
 		printUsage()
 		os.Exit(0)
+
+	case "--completion":
+		if len(args) < 2 {
+			exitWithError("Usage: bj --completion <fish|zsh>")
+		}
+		printCompletion(args[1])
+
+	case "--init":
+		if len(args) < 2 {
+			exitWithError("Usage: bj --init <fish|zsh>")
+		}
+		printInit(args[1])
 
 	case "--list":
 		listJobs(t)
@@ -137,23 +150,32 @@ func printUsage() {
 Give bj a command and it'll handle the rest while you sit back and relax.
 
 Usage:
-  bj <command>      Slip a command in the background
-  bj --list         See what bj is working on
-  bj --logs [id]    Watch bj's performance (latest job if no id specified)
-  bj --prune        Clean up when bj is finished
+  bj <command>        Slip a command in the background
+  bj --list           See what bj is working on
+  bj --logs [id]      Watch bj's performance (latest job if no id specified)
+  bj --prune          Clean up when bj is finished
+
+Shell Integration:
+  bj --completion <sh>  Output shell completions (fish, zsh)
+  bj --init <sh>        Output prompt integration (fish, zsh)
 
 Options:
-  --json            Output in JSON format (works with all commands)
-  -h, --help        Show this help
+  --json              Output in JSON format (works with all commands)
+  -h, --help          Show this help
 
 Examples:
-  bj sleep 10       Let bj handle your sleep needs
-  bj npm install    bj npm while you grab coffee
-  bj --list         Check how bj is doing
-  bj --list --json  Get the raw details
-  bj --logs         See bj's latest output
-  bj --logs 5       Inspect a specific session
-  bj --prune        Tidy up after a satisfying bj`)
+  bj sleep 10         Let bj handle your sleep needs
+  bj npm install      bj npm while you grab coffee
+  bj --list           Check how bj is doing
+  bj --list --json    Get the raw details
+  bj --logs           See bj's latest output
+  bj --logs 5         Inspect a specific session
+  bj --prune          Tidy up after a satisfying bj
+
+Shell Setup:
+  Fish: echo 'bj --init fish | source' >> ~/.config/fish/config.fish
+  Zsh:  echo 'eval "$(bj --init zsh)"' >> ~/.zshrc
+        (ensure ~/.zsh/completions is in your fpath before compinit)`)
 }
 
 func runCommand(cfg *config.Config, t *tracker.Tracker, command string) {
@@ -372,3 +394,164 @@ func viewLogs(cfg *config.Config, t *tracker.Tracker, jobID int) {
 		exitWithError("bj choked while opening logs: %v", err)
 	}
 }
+
+func printCompletion(shell string) {
+	switch shell {
+	case "fish":
+		fmt.Print(fishCompletion)
+	case "zsh":
+		fmt.Print(zshCompletion)
+	default:
+		exitWithError("Unknown shell: %s. bj knows fish and zsh.", shell)
+	}
+}
+
+func printInit(shell string) {
+	switch shell {
+	case "fish":
+		// Write completions file if needed, then output prompt init
+		writeFishCompletions()
+		fmt.Print(fishInit)
+	case "zsh":
+		// Write completions file if needed, then output prompt init
+		writeZshCompletions()
+		fmt.Print(zshInit)
+	default:
+		exitWithError("Unknown shell: %s. bj knows fish and zsh.", shell)
+	}
+}
+
+// writeFishCompletions writes fish completions to ~/.config/fish/completions/bj.fish
+// Only writes if file doesn't exist or content has changed
+func writeFishCompletions() {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return // silently fail, completions are optional
+	}
+
+	completionsDir := filepath.Join(homeDir, ".config", "fish", "completions")
+	completionsFile := filepath.Join(completionsDir, "bj.fish")
+
+	// Check if content has changed
+	existing, err := os.ReadFile(completionsFile)
+	if err == nil && string(existing) == fishCompletion {
+		return // already up to date
+	}
+
+	// Ensure directory exists
+	if err := os.MkdirAll(completionsDir, 0755); err != nil {
+		return // silently fail
+	}
+
+	// Write completions
+	os.WriteFile(completionsFile, []byte(fishCompletion), 0644)
+}
+
+// writeZshCompletions writes zsh completions to ~/.zsh/completions/_bj
+// Only writes if file doesn't exist or content has changed
+func writeZshCompletions() {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return // silently fail, completions are optional
+	}
+
+	completionsDir := filepath.Join(homeDir, ".zsh", "completions")
+	completionsFile := filepath.Join(completionsDir, "_bj")
+
+	// Check if content has changed
+	existing, err := os.ReadFile(completionsFile)
+	if err == nil && string(existing) == zshCompletion {
+		return // already up to date
+	}
+
+	// Ensure directory exists
+	if err := os.MkdirAll(completionsDir, 0755); err != nil {
+		return // silently fail
+	}
+
+	// Write completions
+	os.WriteFile(completionsFile, []byte(zshCompletion), 0644)
+}
+
+const fishCompletion = `# bj fish completions
+# Install: bj --completion fish > ~/.config/fish/completions/bj.fish
+
+# Disable file completions for bj
+complete -c bj -f
+
+# Commands
+complete -c bj -l list -d "See what bj is working on"
+complete -c bj -l logs -d "Watch bj's performance"
+complete -c bj -l prune -d "Clean up when bj is finished"
+complete -c bj -l json -d "Output in JSON format"
+complete -c bj -l help -d "Show help"
+complete -c bj -s h -d "Show help"
+complete -c bj -l completion -d "Output shell completions" -xa "fish zsh"
+complete -c bj -l init -d "Output prompt integration" -xa "fish zsh"
+
+# Job ID completion for --logs
+complete -c bj -n "__fish_seen_argument -l logs" -a "(bj --list --json 2>/dev/null | jq -r '.[].id' 2>/dev/null)" -d "Job ID"
+`
+
+const zshCompletion = `#compdef bj
+# bj zsh completions
+# Install: bj --completion zsh > ~/.zsh/completions/_bj
+#          (ensure ~/.zsh/completions is in your fpath)
+
+_bj_job_ids() {
+    local -a job_ids
+    job_ids=(${(f)"$(bj --list --json 2>/dev/null | jq -r '.[].id' 2>/dev/null)"})
+    _describe -t job-ids 'job ID' job_ids
+}
+
+_bj() {
+    _arguments -C \
+        '--list[See what bj is working on]' \
+        '--logs[Watch bj'\''s performance]:job ID:_bj_job_ids' \
+        '--prune[Clean up when bj is finished]' \
+        '--json[Output in JSON format]' \
+        '--help[Show help]' \
+        '-h[Show help]' \
+        '--completion[Output shell completions]:shell:(fish zsh)' \
+        '--init[Output prompt integration]:shell:(fish zsh)' \
+        '*:command:_command_names'
+}
+
+_bj "$@"
+`
+
+const fishInit = `# bj fish shell integration
+# Setup: echo 'bj --init fish | source' >> ~/.config/fish/config.fish
+# Completions are automatically installed to ~/.config/fish/completions/bj.fish
+
+function __bj_prompt_info
+    set -l running (bj --list --json 2>/dev/null | jq '[.[] | select(.exit_code == null)] | length' 2>/dev/null)
+    if test -n "$running" -a "$running" -gt 0
+        echo -n "[bj:$running] "
+    end
+end
+
+# To use in your prompt, add: __bj_prompt_info
+# Example fish_prompt function:
+#   function fish_prompt
+#       __bj_prompt_info
+#       # ... rest of your prompt
+#   end
+`
+
+const zshInit = `# bj zsh shell integration
+# Setup: echo 'eval "$(bj --init zsh)"' >> ~/.zshrc
+# Completions are automatically installed to ~/.zsh/completions/_bj
+# (ensure ~/.zsh/completions is in your fpath before compinit)
+
+__bj_prompt_info() {
+    local running
+    running=$(bj --list --json 2>/dev/null | jq '[.[] | select(.exit_code == null)] | length' 2>/dev/null)
+    if [[ -n "$running" && "$running" -gt 0 ]]; then
+        echo -n "[bj:$running] "
+    fi
+}
+
+# To use in your prompt, add $(__bj_prompt_info) to your PROMPT or RPROMPT
+# Example: PROMPT='$(__bj_prompt_info)'$PROMPT
+`
