@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -20,8 +21,14 @@ const (
 	colorRed   = "\033[31m"
 )
 
+// Global flag for JSON output
+var jsonOutput bool
+
 func main() {
-	if len(os.Args) < 2 {
+	// Check for --json flag anywhere in args
+	args := filterArgs(os.Args[1:], &jsonOutput)
+
+	if len(args) < 1 {
 		printUsage()
 		os.Exit(1)
 	}
@@ -29,15 +36,13 @@ func main() {
 	// Load config
 	cfg, err := config.Load()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "bj couldn't get comfortable: %v\n", err)
-		os.Exit(1)
+		exitWithError("bj couldn't get comfortable: %v", err)
 	}
 
 	// Create tracker
 	t, err := tracker.New()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "bj lost track of things: %v\n", err)
-		os.Exit(1)
+		exitWithError("bj lost track of things: %v", err)
 	}
 
 	// Auto-prune if configured
@@ -46,23 +51,22 @@ func main() {
 	}
 
 	// Parse first argument to determine action
-	arg := os.Args[1]
+	arg := args[0]
 
 	switch arg {
 	case "-h", "--help":
 		printUsage()
 		os.Exit(0)
 
-	case "-l", "--list":
+	case "--list":
 		listJobs(t)
 
 	case "--logs":
 		var jobID int
-		if len(os.Args) > 2 {
-			id, err := strconv.Atoi(os.Args[2])
+		if len(args) > 1 {
+			id, err := strconv.Atoi(args[1])
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "bj needs a valid number, not '%s'\n", os.Args[2])
-				os.Exit(1)
+				exitWithError("bj needs a valid number, not '%s'", args[1])
 			}
 			jobID = id
 		}
@@ -73,31 +77,58 @@ func main() {
 
 	case "--complete":
 		// Internal command: mark job as complete
-		if len(os.Args) < 4 {
+		if len(args) < 3 {
 			fmt.Fprintf(os.Stderr, "Usage: bj --complete <job_id> <exit_code>\n")
 			os.Exit(1)
 		}
-		jobID, err := strconv.Atoi(os.Args[2])
+		jobID, err := strconv.Atoi(args[1])
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "bj needs a valid job ID, not '%s'\n", os.Args[2])
-			os.Exit(1)
+			exitWithError("bj needs a valid job ID, not '%s'", args[1])
 		}
-		exitCode, err := strconv.Atoi(os.Args[3])
+		exitCode, err := strconv.Atoi(args[2])
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "bj needs a valid exit code, not '%s'\n", os.Args[3])
-			os.Exit(1)
+			exitWithError("bj needs a valid exit code, not '%s'", args[2])
 		}
 		r := runner.New(cfg, t)
 		if err := r.Complete(jobID, exitCode); err != nil {
-			fmt.Fprintf(os.Stderr, "bj couldn't finish properly: %v\n", err)
-			os.Exit(1)
+			exitWithError("bj couldn't finish properly: %v", err)
 		}
 
 	default:
 		// Everything else is treated as a command to run
-		command := strings.Join(os.Args[1:], " ")
+		command := strings.Join(args, " ")
 		runCommand(cfg, t, command)
 	}
+}
+
+// filterArgs removes --json flag and sets jsonOutput, returns remaining args
+func filterArgs(args []string, jsonFlag *bool) []string {
+	var filtered []string
+	for _, arg := range args {
+		if arg == "--json" {
+			*jsonFlag = true
+		} else {
+			filtered = append(filtered, arg)
+		}
+	}
+	return filtered
+}
+
+// exitWithError prints error (or JSON) and exits
+func exitWithError(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	if jsonOutput {
+		outputJSON(map[string]interface{}{"error": msg})
+	} else {
+		fmt.Fprintln(os.Stderr, msg)
+	}
+	os.Exit(1)
+}
+
+// outputJSON marshals and prints JSON
+func outputJSON(v interface{}) {
+	data, _ := json.MarshalIndent(v, "", "  ")
+	fmt.Println(string(data))
 }
 
 func printUsage() {
@@ -107,14 +138,19 @@ Give bj a command and it'll handle the rest while you sit back and relax.
 
 Usage:
   bj <command>      Slip a command in the background
-  bj -l, --list     See what bj is working on
+  bj --list         See what bj is working on
   bj --logs [id]    Watch bj's performance (latest job if no id specified)
   bj --prune        Clean up when bj is finished
+
+Options:
+  --json            Output in JSON format (works with all commands)
+  -h, --help        Show this help
 
 Examples:
   bj sleep 10       Let bj handle your sleep needs
   bj npm install    bj npm while you grab coffee
-  bj -l             Check how bj is doing
+  bj --list         Check how bj is doing
+  bj --list --json  Get the raw details
   bj --logs         See bj's latest output
   bj --logs 5       Inspect a specific session
   bj --prune        Tidy up after a satisfying bj`)
@@ -124,10 +160,17 @@ func runCommand(cfg *config.Config, t *tracker.Tracker, command string) {
 	r := runner.New(cfg, t)
 	jobID, err := r.Run(command)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "bj couldn't get it up: %v\n", err)
-		os.Exit(1)
+		exitWithError("bj couldn't get it up: %v", err)
 	}
-	fmt.Printf("[%d] bj is on it: %s\n", jobID, command)
+	if jsonOutput {
+		outputJSON(map[string]interface{}{
+			"id":      jobID,
+			"command": command,
+			"status":  "started",
+		})
+	} else {
+		fmt.Printf("[%d] bj is on it: %s\n", jobID, command)
+	}
 }
 
 type jobRow struct {
@@ -140,15 +183,54 @@ type jobRow struct {
 	isDone   bool
 }
 
+// relativeTime returns a human-friendly relative time string
+func relativeTime(t time.Time) string {
+	d := time.Since(t)
+
+	switch {
+	case d < time.Minute:
+		return "just now"
+	case d < time.Hour:
+		mins := int(d.Minutes())
+		if mins == 1 {
+			return "1 min ago"
+		}
+		return fmt.Sprintf("%d mins ago", mins)
+	case d < 24*time.Hour:
+		hours := int(d.Hours())
+		if hours == 1 {
+			return "1 hour ago"
+		}
+		return fmt.Sprintf("%d hours ago", hours)
+	case d < 7*24*time.Hour:
+		days := int(d.Hours() / 24)
+		if days == 1 {
+			return "yesterday"
+		}
+		return fmt.Sprintf("%d days ago", days)
+	default:
+		return t.Format("Jan 02")
+	}
+}
+
 func listJobs(t *tracker.Tracker) {
 	jobs, err := t.List()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "bj can't show you what it's got: %v\n", err)
-		os.Exit(1)
+		exitWithError("bj can't show you what it's got: %v", err)
 	}
 
 	if len(jobs) == 0 {
-		fmt.Println("bj has nothing going on. Give it something to do!")
+		if jsonOutput {
+			outputJSON([]interface{}{})
+		} else {
+			fmt.Println("bj has nothing going on. Give it something to do!")
+		}
+		return
+	}
+
+	// JSON output - return raw job data
+	if jsonOutput {
+		outputJSON(jobs)
 		return
 	}
 
@@ -172,7 +254,7 @@ func listJobs(t *tracker.Tracker) {
 			}
 		}
 
-		row.start = job.StartTime.Format("Jan 02 15:04")
+		row.start = relativeTime(job.StartTime)
 
 		// Truncate long commands
 		row.cmd = job.Command
@@ -225,10 +307,11 @@ func listJobs(t *tracker.Tracker) {
 func pruneJobs(t *tracker.Tracker) {
 	count, err := t.Prune()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "bj made a mess while cleaning up: %v\n", err)
-		os.Exit(1)
+		exitWithError("bj made a mess while cleaning up: %v", err)
 	}
-	if count == 0 {
+	if jsonOutput {
+		outputJSON(map[string]interface{}{"pruned": count})
+	} else if count == 0 {
 		fmt.Println("Nothing to clean up. bj keeps it tidy.")
 	} else {
 		fmt.Printf("Wiped away %d finished job(s). Fresh and ready for more.\n", count)
@@ -242,29 +325,41 @@ func viewLogs(cfg *config.Config, t *tracker.Tracker, jobID int) {
 	if jobID == 0 {
 		job, err = t.Latest()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "bj can't recall the last session: %v\n", err)
-			os.Exit(1)
+			exitWithError("bj can't recall the last session: %v", err)
 		}
 		if job == nil {
+			if jsonOutput {
+				exitWithError("no jobs found")
+			}
 			fmt.Println("bj hasn't done anything yet. Get it started first!")
 			os.Exit(0)
 		}
 	} else {
 		job, err = t.Get(jobID)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "bj can't find that one: %v\n", err)
-			os.Exit(1)
+			exitWithError("bj can't find that one: %v", err)
 		}
 		if job == nil {
-			fmt.Fprintf(os.Stderr, "Job %d? bj doesn't remember that.\n", jobID)
-			os.Exit(1)
+			exitWithError("Job %d? bj doesn't remember that.", jobID)
 		}
 	}
 
 	// Check if log file exists
 	if _, err := os.Stat(job.LogFile); os.IsNotExist(err) {
-		fmt.Fprintf(os.Stderr, "bj swallowed the logs. File not found: %s\n", job.LogFile)
-		os.Exit(1)
+		exitWithError("bj swallowed the logs. File not found: %s", job.LogFile)
+	}
+
+	// JSON mode: output log contents
+	if jsonOutput {
+		content, err := os.ReadFile(job.LogFile)
+		if err != nil {
+			exitWithError("bj couldn't read the logs: %v", err)
+		}
+		outputJSON(map[string]interface{}{
+			"job":     job,
+			"content": string(content),
+		})
+		return
 	}
 
 	// Open with configured viewer
@@ -274,7 +369,6 @@ func viewLogs(cfg *config.Config, t *tracker.Tracker, jobID int) {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "bj choked while opening logs: %v\n", err)
-		os.Exit(1)
+		exitWithError("bj choked while opening logs: %v", err)
 	}
 }
