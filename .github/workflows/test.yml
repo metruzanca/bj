@@ -17,5 +17,8 @@ jobs:
         with:
           go-version: '1.21'
 
+      - name: Install tparse
+        run: go install github.com/mfridman/tparse@latest
+
       - name: Run tests
-        run: go test -v -race ./...
+        run: CI="true" go test -v ./... -json | tparse -all
