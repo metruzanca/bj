@@ -1,7 +1,5 @@
 # bj - Background Jobs
 
-[![Go Coverage](https://github.com/metruzanca/bj/wiki/coverage.svg)](https://raw.githack.com/wiki/metruzanca/bj/coverage.html)
-
 A handy lightweight CLI tool that reliably runs commands in the background. Sometimes `&` isn't enough and things don't detach properly. `bj` fixes that without much fuss. It goes down easy and gets the job done.
 
 ## Install
