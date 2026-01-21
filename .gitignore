@@ -1,2 +1,6 @@
 # Binary
 bj
+
+# IDEs
+.vscode
+.cursor

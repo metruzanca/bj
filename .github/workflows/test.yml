@@ -21,4 +21,4 @@ jobs:
         run: go install github.com/mfridman/tparse@latest
 
       - name: Run tests
-        run: CI="true" go test -v ./... -json | tparse -all
+        run: CI="true" go test ./... -json | tparse -all
