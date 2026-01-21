@@ -132,6 +132,8 @@ go test -update ./...
 
 Then review the diff to `testdata/` files before committing.
 
+Snapshot testing approach inspired by [@giacomocavalieri](https://github.com/giacomocavalieri) and the [@gleam-lang](https://github.com/gleam-lang) project.
+
 ---
 
 <details>
