@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-01-20
+
+### Added
+- `--retry` as a modifier flag for running commands with automatic retry
+- `--delay` flag for configurable retry backoff
+- `--kill` flag to terminate running jobs
+- `--gc` flag to detect and clean up orphaned jobs after crashes
+- `--running`, `--failed`, `--done` filters for `--list` command
+- Comprehensive integration test suite with golden file snapshots
+- CI workflow with test coverage badge
+- Auto-prune and gc execution on `--init`
+
+### Changed
+- `--retry` can now be used as both a modifier flag and standalone flag for retrying failed jobs
+
+### Fixed
+- `--id` flag now validates that only positive integers are accepted
+- CI `-v` flag no longer hides test failures
+
+### Removed
+- `--ruined` alias for `--failed` (keeping interface professional)
+- `jq` dependency
+
 ## [0.2.0] - 2026-01-20
 
 ### Added
@@ -31,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Detached process execution via `setsid`
 - Job tracking with start/end time, exit code, working directory
 
-[Unreleased]: https://github.com/metruzanca/bj/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/metruzanca/bj/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/metruzanca/bj/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/metruzanca/bj/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/metruzanca/bj/releases/tag/v0.1.0
