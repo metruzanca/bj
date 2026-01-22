@@ -91,6 +91,15 @@ echo 'eval "$(bj --init zsh)"' >> ~/.zshrc
 
 The prompt function shows `[bj:N]` when N jobs are running.
 
+## Manual Page
+
+View the full manual:
+
+```bash
+bj --man | man /dev/stdin   # Linux
+bj --man > /tmp/bj.1 && man /tmp/bj.1   # macOS
+```
+
 ## Configuration
 
 Config file: `~/.config/bj/bj.toml`

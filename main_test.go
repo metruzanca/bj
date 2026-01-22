@@ -245,6 +245,13 @@ func TestHelpInit(t *testing.T) {
 	goldenFile(t, "help-init", stdout)
 }
 
+func TestMan(t *testing.T) {
+	env := newTestEnv(t)
+	stdout, _, code := env.run("--man")
+	assertExitCode(t, code, 0)
+	goldenFile(t, "man", stdout)
+}
+
 func TestCompletionFish(t *testing.T) {
 	env := newTestEnv(t)
 	stdout, _, code := env.run("--completion", "fish")

@@ -39,6 +39,7 @@ _bj() {
         '-h[Show help]' \
         '--completion[Output shell completions]:shell:(fish zsh)' \
         '--init[Output prompt integration]:shell:(fish zsh)' \
+        '--man[Output manual page]' \
         '*:command:_command_names'
 }
 

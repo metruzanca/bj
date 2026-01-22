@@ -15,6 +15,7 @@ Usage:
 Shell Integration:
   bj --completion <sh>  Output shell completions (fish, zsh)
   bj --init <sh>        Output prompt integration (fish, zsh)
+  bj --man              Output manual page (pipe to man for viewing)
 
 Options:
   --retry[=N]         Keep trying until success (or limit to N attempts)

@@ -105,6 +105,9 @@ func main() {
 	arg := args[0]
 
 	switch {
+	case arg == "--man":
+		printManPage()
+
 	case arg == "--completion":
 		if len(args) < 2 {
 			exitWithError("Usage: bj --completion <fish|zsh>")
@@ -444,6 +447,7 @@ Usage:
 Shell Integration:
   bj --completion <sh>  Output shell completions (fish, zsh)
   bj --init <sh>        Output prompt integration (fish, zsh)
+  bj --man              Output manual page (pipe to man for viewing)
 
 Options:
   --retry[=N]         Keep trying until success (or limit to N attempts)
@@ -966,6 +970,216 @@ func writeZshCompletions() {
 	os.WriteFile(completionsFile, []byte(zshCompletion), 0644)
 }
 
+func printManPage() {
+	fmt.Print(manPage)
+}
+
+const manPage = `.TH BJ 1 "January 2026" "bj 0.3" "User Commands"
+.SH NAME
+bj \- background jobs manager
+.SH SYNOPSIS
+.B bj
+.RI [ options ]
+.I command
+.br
+.B bj
+.B \-\-list
+.RI [ \-\-running | \-\-failed | \-\-done ]
+.RI [ \-\-json ]
+.br
+.B bj
+.B \-\-logs
+.RI [ id ]
+.RI [ \-\-json ]
+.br
+.B bj
+.B \-\-kill
+.RI [ id ]
+.RI [ \-\-json ]
+.br
+.B bj
+.B \-\-retry\fR[\fB=\fIN\fR]
+.RI [ \-\-id
+.IR id ]
+.RI [ \-\-delay
+.IR secs ]
+.RI [ \-\-json ]
+.br
+.B bj
+.B \-\-prune
+.RI [ \-\-json ]
+.br
+.B bj
+.B \-\-gc
+.RI [ \-\-json ]
+.SH DESCRIPTION
+.B bj
+is a lightweight CLI tool that reliably runs commands in the background.
+It uses
+.BR setsid (2)
+to fully detach processes, ensuring they survive terminal closure.
+.PP
+Give bj a command and it'll handle the rest while you sit back and relax.
+.SH OPTIONS
+.TP
+.B \-\-list
+See what bj is working on. Shows all tracked jobs with status, start time,
+duration, and command.
+.TP
+.B \-\-running
+Filter \fB\-\-list\fR to show only running jobs.
+.TP
+.B \-\-failed
+Filter \fB\-\-list\fR to show only failed jobs (non-zero exit code).
+.TP
+.B \-\-done
+Filter \fB\-\-list\fR to show only successfully completed jobs.
+.TP
+.BI \-\-logs " [id]"
+View the output (stdout/stderr) of a job. If no ID is specified, shows
+the most recent job's logs.
+.TP
+.BI \-\-kill " [id]"
+Terminate a running job by sending SIGTERM to its process group. If no ID
+is specified, kills the most recent running job.
+.TP
+.BR \-\-retry [ =\fIN\fR ]
+When used with a command, runs the command with automatic retry on failure.
+When used alone, retries the most recent failed job. Optionally limit to
+.I N
+attempts.
+.TP
+.BI \-\-id " id"
+Specify which job to retry (used with \fB\-\-retry\fR).
+.TP
+.BI \-\-delay " secs"
+Wait
+.I secs
+seconds between retry attempts (default: 1). Used with \fB\-\-retry\fR.
+.TP
+.B \-\-prune
+Remove all completed jobs from the job list and delete their log files.
+Only running jobs are kept. If all jobs are pruned, the ID counter resets.
+.TP
+.B \-\-gc
+Garbage collect orphaned jobs. Detects jobs that appear to be running but
+whose process is gone (e.g., after a crash or reboot) and marks them as failed.
+.TP
+.B \-\-json
+Output in JSON format. Works with all commands.
+.TP
+.BR \-\-completion " fish" | zsh
+Output shell completion definitions.
+.TP
+.BR \-\-init " fish" | zsh
+Output shell integration code including prompt function.
+.TP
+.B \-\-man
+Output this manual page. Pipe to
+.BR man (1)
+for formatted viewing.
+.TP
+.BR \-h ", " \-\-help
+Show help message. Use with a command for detailed help (e.g., \fBbj \-\-list \-\-help\fR).
+.SH EXAMPLES
+Run a command in the background:
+.PP
+.RS
+.nf
+bj npm install
+bj make build
+.fi
+.RE
+.PP
+Run with automatic retry until success:
+.PP
+.RS
+.nf
+bj \-\-retry npm test
+bj \-\-retry=3 make build
+bj \-\-retry \-\-delay 5 curl http://example.com
+.fi
+.RE
+.PP
+View and manage jobs:
+.PP
+.RS
+.nf
+bj \-\-list
+bj \-\-list \-\-running
+bj \-\-logs
+bj \-\-logs 5
+bj \-\-kill
+.fi
+.RE
+.PP
+Clean up:
+.PP
+.RS
+.nf
+bj \-\-prune
+bj \-\-gc
+.fi
+.RE
+.SH FILES
+.TP
+.I ~/.config/bj/bj.toml
+Configuration file.
+.TP
+.I ~/.config/bj/jobs.json
+Job metadata storage.
+.TP
+.I ~/.config/bj/logs/
+Directory containing job output logs.
+.SH CONFIGURATION
+The configuration file uses TOML format:
+.PP
+.RS
+.nf
+log_dir = "logs"        # Relative to config dir, or absolute
+viewer = "less"         # Command to view logs
+auto_prune_hours = 24   # Auto-delete completed jobs older than N hours
+.fi
+.RE
+.SH SHELL INTEGRATION
+.SS Fish
+.PP
+.RS
+.nf
+echo 'bj \-\-init fish | source' >> ~/.config/fish/config.fish
+.fi
+.RE
+.SS Zsh
+.PP
+.RS
+.nf
+echo 'eval "$(bj \-\-init zsh)"' >> ~/.zshrc
+.fi
+.RE
+.PP
+The shell integration provides tab completion and a prompt function
+.B __bj_prompt_info
+that shows
+.B [bj:N]
+when N jobs are running.
+.SH EXIT STATUS
+.TP
+.B 0
+Success.
+.TP
+.B 1
+Error or invalid usage.
+.SH SEE ALSO
+.BR nohup (1),
+.BR setsid (1),
+.BR screen (1),
+.BR tmux (1)
+.SH BUGS
+Report bugs at https://github.com/metruzanca/bj/issues
+.SH AUTHOR
+Written with love and AI assistance.
+`
+
 const fishCompletion = `# bj fish completions
 # Install: bj --completion fish > ~/.config/fish/completions/bj.fish
 
@@ -989,6 +1203,7 @@ complete -c bj -l help -d "Show help"
 complete -c bj -s h -d "Show help"
 complete -c bj -l completion -d "Output shell completions" -xa "fish zsh"
 complete -c bj -l init -d "Output prompt integration" -xa "fish zsh"
+complete -c bj -l man -d "Output manual page"
 
 # Job ID completion for --logs and --kill
 complete -c bj -n "__fish_seen_argument -l logs" -a "(bj --ids 2>/dev/null)" -d "Job ID"
@@ -1036,6 +1251,7 @@ _bj() {
         '-h[Show help]' \
         '--completion[Output shell completions]:shell:(fish zsh)' \
         '--init[Output prompt integration]:shell:(fish zsh)' \
+        '--man[Output manual page]' \
         '*:command:_command_names'
 }
 

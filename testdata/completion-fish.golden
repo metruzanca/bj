@@ -21,6 +21,7 @@ complete -c bj -l help -d "Show help"
 complete -c bj -s h -d "Show help"
 complete -c bj -l completion -d "Output shell completions" -xa "fish zsh"
 complete -c bj -l init -d "Output prompt integration" -xa "fish zsh"
+complete -c bj -l man -d "Output manual page"
 
 # Job ID completion for --logs and --kill
 complete -c bj -n "__fish_seen_argument -l logs" -a "(bj --ids 2>/dev/null)" -d "Job ID"
