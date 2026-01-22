@@ -126,6 +126,12 @@ See [`.github/bj.toml`](.github/bj.toml) for a fully documented example config w
 go test ./...
 ```
 
+### Testing Man Page
+
+```bash
+go run . --man | mandoc | less
+```
+
 ### Testing Philosophy
 
 This project is heavily snapshot-based (golden file tests). Why?
