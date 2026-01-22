@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-01-22
+
+### Fixed
+- Unknown flags (e.g., `--typo`) are now rejected instead of being run as commands
+
 ## [0.3.0] - 2026-01-20
 
 ### Added
@@ -54,7 +59,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Detached process execution via `setsid`
 - Job tracking with start/end time, exit code, working directory
 
-[Unreleased]: https://github.com/metruzanca/bj/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/metruzanca/bj/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/metruzanca/bj/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/metruzanca/bj/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/metruzanca/bj/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/metruzanca/bj/releases/tag/v0.1.0
