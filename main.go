@@ -171,6 +171,10 @@ func main() {
 		}
 
 	default:
+		// Check for unknown flags - don't accidentally run them as commands
+		if strings.HasPrefix(arg, "-") {
+			exitWithError("Unknown flag: %s. Try 'bj --help' for usage.", arg)
+		}
 		// Everything else is treated as a command to run
 		command := strings.Join(args, " ")
 		runCommand(cfg, t, command)
