@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -325,6 +326,22 @@ func TestNoArgs(t *testing.T) {
 	assertContains(t, stdout, "bj - Background Jobs")
 }
 
+func TestUnknownFlag(t *testing.T) {
+	env := newTestEnv(t)
+
+	_, stderr, code := env.run("--unknown-flag")
+	assertExitCode(t, code, 1)
+	assertContains(t, stderr, "Unknown flag")
+}
+
+func TestUnknownFlagShort(t *testing.T) {
+	env := newTestEnv(t)
+
+	_, stderr, code := env.run("-x")
+	assertExitCode(t, code, 1)
+	assertContains(t, stderr, "Unknown flag")
+}
+
 // =============================================================================
 // Job Lifecycle Tests
 // =============================================================================
@@ -509,6 +526,52 @@ func TestKillNoRunning(t *testing.T) {
 	assertContains(t, stdout, "bj isn't doing anything right now")
 }
 
+func TestKillByID(t *testing.T) {
+	env := newTestEnv(t)
+
+	// Start a long-running job
+	stdout, _, _ := env.run("sleep", "30")
+	// Extract job ID from output like "[1] bj is on it: sleep 30"
+	var jobID string
+	if _, err := fmt.Sscanf(stdout, "[%s]", &jobID); err == nil {
+		jobID = strings.TrimSuffix(jobID, "]")
+	}
+
+	time.Sleep(200 * time.Millisecond)
+
+	// Kill by specific ID
+	stdout, _, code := env.run("--kill", "1")
+	assertExitCode(t, code, 0)
+	assertMatch(t, stdout, `\[1\] bj stopped abruptly`)
+}
+
+func TestKillJSON(t *testing.T) {
+	env := newTestEnv(t)
+
+	// Start a long-running job
+	env.run("sleep", "30")
+	time.Sleep(200 * time.Millisecond)
+
+	// Kill with JSON output
+	stdout, _, code := env.run("--kill", "--json")
+	assertExitCode(t, code, 0)
+
+	var result struct {
+		ID      int    `json:"id"`
+		Command string `json:"command"`
+		Status  string `json:"status"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+	if result.Status != "killed" {
+		t.Errorf("status = %q, want %q", result.Status, "killed")
+	}
+	if result.Command != "sleep 30" {
+		t.Errorf("command = %q, want %q", result.Command, "sleep 30")
+	}
+}
+
 // =============================================================================
 // GC Tests
 // =============================================================================
@@ -658,6 +721,51 @@ func TestRetryNoFailedJobs(t *testing.T) {
 	assertContains(t, stdout, "bj hasn't ruined anything yet")
 }
 
+func TestRetryWithID(t *testing.T) {
+	env := newTestEnv(t)
+
+	// Create two failed jobs
+	env.runAndWait("false")
+	env.runAndWait("sh", "-c", "exit 2")
+
+	// Retry specific job by ID (job 1)
+	stdout, _, code := env.run("--retry", "--id", "1")
+	assertExitCode(t, code, 0)
+	assertMatch(t, stdout, `\[\d+\] bj will keep edging until it succeeds: false`)
+}
+
+func TestRetryWithDelay(t *testing.T) {
+	env := newTestEnv(t)
+
+	// Run with retry and custom delay
+	stdout, _, code := env.run("--retry=2", "--delay", "0", "echo", "quick")
+	assertExitCode(t, code, 0)
+	assertMatch(t, stdout, `\[\d+\] bj will tease up to 2 times before giving up: echo quick`)
+}
+
+func TestRetryJSON(t *testing.T) {
+	env := newTestEnv(t)
+
+	stdout, _, code := env.run("--retry=3", "--json", "echo", "test")
+	assertExitCode(t, code, 0)
+
+	var result struct {
+		ID          int    `json:"id"`
+		Command     string `json:"command"`
+		Status      string `json:"status"`
+		MaxAttempts int    `json:"max_attempts"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+	if result.MaxAttempts != 3 {
+		t.Errorf("max_attempts = %d, want 3", result.MaxAttempts)
+	}
+	if result.Command != "echo test" {
+		t.Errorf("command = %q, want %q", result.Command, "echo test")
+	}
+}
+
 // =============================================================================
 // List Filter Tests
 // =============================================================================
@@ -684,6 +792,27 @@ func TestListFilters(t *testing.T) {
 	if strings.Contains(stdout, "success") {
 		t.Error("--failed should not show successful jobs")
 	}
+}
+
+func TestListRunningFilter(t *testing.T) {
+	env := newTestEnv(t)
+
+	// Start a long-running job
+	env.run("sleep", "30")
+	time.Sleep(200 * time.Millisecond)
+
+	// Also run a completed job
+	env.runAndWait("echo", "done")
+
+	// Test --running filter
+	stdout, _, _ := env.run("--list", "--running")
+	assertContains(t, stdout, "sleep 30")
+	if strings.Contains(stdout, "echo done") {
+		t.Error("--running should not show completed jobs")
+	}
+
+	// Clean up
+	env.run("--kill")
 }
 
 func TestListEmpty(t *testing.T) {
