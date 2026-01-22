@@ -37,13 +37,10 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Auto-prune
 # ─────────────────────────────────────────────────────────────────────────────
-# Automatically remove successfully completed jobs (exit code 0) older than
-# this many hours. Their log files are also deleted.
+# Automatically remove completed jobs (any exit code) older than this many
+# hours. Their log files are also deleted.
 #
 # Set to 0 to disable auto-pruning entirely.
-#
-# Note: Failed jobs are never auto-pruned. Use `bj --prune` to remove them
-# manually, or `bj --retry` to try again.
 #
 # Default: 24 (hours)
 #

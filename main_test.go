@@ -452,20 +452,61 @@ func TestPrune(t *testing.T) {
 		t.Fatalf("expected 2 jobs before prune, got %d", len(jobs))
 	}
 
-	// Prune
+	// Prune - should remove ALL completed jobs (both success and failed)
+	stdout, _, code := env.run("--prune")
+	assertExitCode(t, code, 0)
+	assertMatch(t, stdout, `Wiped away 2 finished job`)
+
+	// Verify all jobs are gone
+	stdout, _, _ = env.run("--list", "--json")
+	json.Unmarshal([]byte(stdout), &jobs)
+	if len(jobs) != 0 {
+		t.Fatalf("expected 0 jobs after prune, got %d", len(jobs))
+	}
+}
+
+func TestPruneKeepsRunning(t *testing.T) {
+	env := newTestEnv(t)
+
+	// Start a long-running job
+	env.run("sleep", "30")
+	time.Sleep(200 * time.Millisecond)
+
+	// Run a completed job
+	env.runAndWait("echo", "done")
+
+	// Prune - should only remove completed job
 	stdout, _, code := env.run("--prune")
 	assertExitCode(t, code, 0)
 	assertMatch(t, stdout, `Wiped away 1 finished job`)
 
-	// Verify only failed job remains
+	// Verify running job remains
 	stdout, _, _ = env.run("--list", "--json")
+	var jobs []tracker.Job
 	json.Unmarshal([]byte(stdout), &jobs)
 	if len(jobs) != 1 {
 		t.Fatalf("expected 1 job after prune, got %d", len(jobs))
 	}
-	if jobs[0].ExitCode == nil || *jobs[0].ExitCode == 0 {
-		t.Error("expected remaining job to be failed")
+	if jobs[0].ExitCode != nil {
+		t.Error("expected remaining job to still be running")
 	}
+
+	// Clean up
+	env.run("--kill")
+}
+
+func TestPruneResetsIDCounter(t *testing.T) {
+	env := newTestEnv(t)
+
+	// Run a job
+	env.runAndWait("echo", "first")
+
+	// Prune it
+	env.run("--prune")
+
+	// Run another job - ID should be 1 again
+	stdout, _, _ := env.run("echo", "second")
+	assertMatch(t, stdout, `\[1\] bj is on it`)
 }
 
 func TestPruneJSON(t *testing.T) {

@@ -318,14 +318,15 @@ Examples:
 
 Usage: bj --prune [--json]
 
-Removes all successfully completed jobs (exit code 0) from the job list
-and deletes their log files. Failed jobs are kept for review.
+Removes all completed jobs (any exit code) from the job list and deletes
+their log files. Only running jobs are kept. If all jobs are pruned, the
+ID counter resets to 1.
 
 Options:
   --json    Output prune count as JSON
 
 Examples:
-  bj --prune        Tidy up after a satisfying bj`)
+  bj --prune        Wipe the slate clean after bj is done`)
 
 	case "--kill":
 		fmt.Println(`bj --kill - Make bj stop what it's doing

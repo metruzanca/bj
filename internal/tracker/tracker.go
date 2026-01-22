@@ -376,7 +376,8 @@ func (t *Tracker) pruneOldJobs(jobs []Job) []Job {
 	return result
 }
 
-// Prune removes all done jobs (exit code 0), deletes their log files, and returns count pruned
+// Prune removes all completed jobs (any exit code), deletes their log files, and returns count pruned
+// If all jobs are pruned, the ID counter resets to 1 for the next job
 func (t *Tracker) Prune() (int, error) {
 	lockFile, err := t.lock()
 	if err != nil {
@@ -392,11 +393,13 @@ func (t *Tracker) Prune() (int, error) {
 	var kept []Job
 	pruned := 0
 	for _, j := range jobs {
-		if j.ExitCode != nil && *j.ExitCode == 0 {
+		if j.ExitCode != nil {
+			// Job is completed (any exit code) - prune it
 			// Delete the log file (ignore errors - file may already be gone)
 			os.Remove(j.LogFile)
 			pruned++
 		} else {
+			// Job is still running - keep it
 			kept = append(kept, j)
 		}
 	}
@@ -466,7 +469,7 @@ func (t *Tracker) GarbageCollect() (int, error) {
 	return collected, nil
 }
 
-// PruneOlderThan removes done jobs (exit code 0) older than the given duration, deletes their log files
+// PruneOlderThan removes completed jobs (any exit code) older than the given duration, deletes their log files
 func (t *Tracker) PruneOlderThan(d time.Duration) (int, error) {
 	lockFile, err := t.lock()
 	if err != nil {
@@ -483,8 +486,8 @@ func (t *Tracker) PruneOlderThan(d time.Duration) (int, error) {
 	var kept []Job
 	pruned := 0
 	for _, j := range jobs {
-		// Prune if done (exit 0) and ended before cutoff
-		if j.ExitCode != nil && *j.ExitCode == 0 && j.EndTime != nil && j.EndTime.Before(cutoff) {
+		// Prune if completed (any exit code) and ended before cutoff
+		if j.ExitCode != nil && j.EndTime != nil && j.EndTime.Before(cutoff) {
 			// Delete the log file (ignore errors - file may already be gone)
 			os.Remove(j.LogFile)
 			pruned++
