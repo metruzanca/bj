@@ -1,171 +1,134 @@
 .TH BJ 1 "January 2026" "bj 0.3" "User Commands"
 .SH NAME
-bj \- background jobs manager
+bj \- background jobs manager (and so much more)
 .SH SYNOPSIS
 .B bj
 .RI [ options ]
 .I command
-.br
-.B bj
-.B \-\-list
-.RI [ \-\-running | \-\-failed | \-\-done ]
-.RI [ \-\-json ]
-.br
-.B bj
-.B \-\-logs
-.RI [ id ]
-.RI [ \-\-json ]
-.br
-.B bj
-.B \-\-kill
-.RI [ id ]
-.RI [ \-\-json ]
-.br
-.B bj
-.B \-\-retry\fR[\fB=\fIN\fR]
-.RI [ \-\-id
-.IR id ]
-.RI [ \-\-delay
-.IR secs ]
-.RI [ \-\-json ]
-.br
-.B bj
-.B \-\-prune
-.RI [ \-\-json ]
-.br
-.B bj
-.B \-\-gc
-.RI [ \-\-json ]
+.PP
+Look, you're reading a man page. That's adorable. But honestly?
+.B bj \-\-help
+is right there, waiting for you. It's faster, it's always up to date, and
+it doesn't require piping through
+.BR man (1)
+like some kind of animal.
+.PP
+But fine. You want the \fIfull experience\fR. Let's do this.
 .SH DESCRIPTION
 .B bj
-is a lightweight CLI tool that reliably runs commands in the background.
-It uses
+is a lightweight CLI tool that handles your commands in the background so you
+can focus on more... \fIpressing\fR matters. It uses
 .BR setsid (2)
-to fully detach processes, ensuring they survive terminal closure.
+to fully detach processes, ensuring they keep going long after you've
+moved on. Some might call that stamina.
 .PP
 Give bj a command and it'll handle the rest while you sit back and relax.
+No strings attached. Well, no \fIterminal\fR attached.
+.SH "A GENTLE SUGGESTION"
+Before we go any further, have you considered
+.B bj \-\-init fish
+or
+.BR "bj \-\-init zsh" ?
+The shell integration gives you tab completion that \fIanticipates your needs\fR.
+It's like bj reading your mind, but for command-line arguments.
+.PP
+And if you want help on a specific command, try something like:
+.PP
+.RS
+.nf
+bj \-\-list \-\-help
+bj \-\-retry \-\-help
+.fi
+.RE
+.PP
+Each command has its own detailed help. It's intimate. Personal. Much better
+than this impersonal wall of text you're currently squinting at.
+.PP
+But you're still here. I respect the commitment.
 .SH OPTIONS
+These are the highlights. For the \fIreal\fR details, use
+.B \-\-help
+on individual commands. They'll treat you right.
 .TP
 .B \-\-list
-See what bj is working on. Shows all tracked jobs with status, start time,
-duration, and command.
-.TP
-.B \-\-running
-Filter \fB\-\-list\fR to show only running jobs.
-.TP
-.B \-\-failed
-Filter \fB\-\-list\fR to show only failed jobs (non-zero exit code).
-.TP
-.B \-\-done
-Filter \fB\-\-list\fR to show only successfully completed jobs.
+See what bj has been up to. Add
+.BR \-\-running ", " \-\-failed ", or " \-\-done
+to filter by... performance.
 .TP
 .BI \-\-logs " [id]"
-View the output (stdout/stderr) of a job. If no ID is specified, shows
-the most recent job's logs.
+Watch bj's output. Every moan, groan, and triumphant success message.
+Defaults to the most recent job if you can't remember which one.
 .TP
 .BI \-\-kill " [id]"
-Terminate a running job by sending SIGTERM to its process group. If no ID
-is specified, kills the most recent running job.
+Sometimes you need to stop things abruptly. No judgment.
 .TP
 .BR \-\-retry [ =\fIN\fR ]
-When used with a command, runs the command with automatic retry on failure.
-When used alone, retries the most recent failed job. Optionally limit to
-.I N
-attempts.
-.TP
-.BI \-\-id " id"
-Specify which job to retry (used with \fB\-\-retry\fR).
+bj doesn't give up easily. Use alone to retry a ruined job, or with a
+command to keep trying until satisfaction (or N attempts, whichever comes first).
 .TP
 .BI \-\-delay " secs"
-Wait
-.I secs
-seconds between retry attempts (default: 1). Used with \fB\-\-retry\fR.
+Pace yourself. Wait between retry attempts.
 .TP
 .B \-\-prune
-Remove all completed jobs from the job list and delete their log files.
-Only running jobs are kept. If all jobs are pruned, the ID counter resets.
+Clean up when bj is finished. Removes completed jobs and their logs.
+A tidy bj is a happy bj.
 .TP
 .B \-\-gc
-Garbage collect orphaned jobs. Detects jobs that appear to be running but
-whose process is gone (e.g., after a crash or reboot) and marks them as failed.
+Find jobs that were unexpectedly ruined. Sometimes things end badly
+without warning. This helps you find closure.
 .TP
 .B \-\-json
-Output in JSON format. Works with all commands.
-.TP
-.BR \-\-completion " fish" | zsh
-Output shell completion definitions.
+For the robots among us. Or if you're piping to
+.BR jq (1)
+like a sophisticated individual.
 .TP
 .BR \-\-init " fish" | zsh
-Output shell integration code including prompt function.
-.TP
-.B \-\-man
-Output this manual page. Pipe to
-.BR man (1)
-for formatted viewing.
+.B "You should really do this."
+Sets up shell integration with completions and a prompt function.
+Your future self will thank you. Your present self might even feel things.
 .TP
 .BR \-h ", " \-\-help
-Show help message. Use with a command for detailed help (e.g., \fBbj \-\-list \-\-help\fR).
+The \fIactual\fR way to get help. Faster, more contextual, and doesn't
+require you to remember how your system's
+.BR man (1)
+works. Use
+.B bj <command> \-\-help
+for the good stuff.
 .SH EXAMPLES
-Run a command in the background:
 .PP
 .RS
 .nf
-bj npm install
-bj make build
+bj npm install            # Let bj handle your package needs
+bj \-\-retry npm test       # Keep going until it passes
+bj \-\-list                 # Check on bj's progress
+bj \-\-logs                 # See the latest output
+bj \-\-kill                 # Stop it right there
+bj \-\-prune                # Clean up after a satisfying session
 .fi
 .RE
 .PP
-Run with automatic retry until success:
-.PP
-.RS
-.nf
-bj \-\-retry npm test
-bj \-\-retry=3 make build
-bj \-\-retry \-\-delay 5 curl http://example.com
-.fi
-.RE
-.PP
-View and manage jobs:
-.PP
-.RS
-.nf
-bj \-\-list
-bj \-\-list \-\-running
-bj \-\-logs
-bj \-\-logs 5
-bj \-\-kill
-.fi
-.RE
-.PP
-Clean up:
-.PP
-.RS
-.nf
-bj \-\-prune
-bj \-\-gc
-.fi
-.RE
+But really, just type
+.B bj
+and press tab a few times. The shell integration makes this \fIso\fR much better.
 .SH FILES
 .TP
-.I ~/.config/bj/bj.toml
-Configuration file.
-.TP
-.I ~/.config/bj/jobs.json
-Job metadata storage.
-.TP
-.I ~/.config/bj/logs/
-Directory containing job output logs.
+.I ~/.config/bj/
+Where bj keeps its private data. Jobs, logs, configuration. Don't be weird about it.
 .SH CONFIGURATION
-The configuration file uses TOML format:
 .PP
 .RS
 .nf
-log_dir = "logs"        # Relative to config dir, or absolute
-viewer = "less"         # Command to view logs
-auto_prune_hours = 24   # Auto-delete completed jobs older than N hours
+# ~/.config/bj/bj.toml
+log_dir = "logs"
+viewer = "less"
+auto_prune_hours = 24
 .fi
 .RE
-.SH SHELL INTEGRATION
+.PP
+See the example config at
+.I https://github.com/metruzanca/bj
+for all the options, lovingly commented.
+.SH "SHELL INTEGRATION (SERIOUSLY, DO THIS)"
 .SS Fish
 .PP
 .RS
@@ -181,24 +144,36 @@ echo 'eval "$(bj \-\-init zsh)"' >> ~/.zshrc
 .fi
 .RE
 .PP
-The shell integration provides tab completion and a prompt function
+This gives you tab completion and a
 .B __bj_prompt_info
-that shows
-.B [bj:N]
-when N jobs are running.
+function that shows how many jobs are currently... active.
+.PP
+You'll wonder how you ever lived without it. It's transformative.
 .SH EXIT STATUS
-.TP
 .B 0
-Success.
-.TP
+if bj finishes happily.
 .B 1
-Error or invalid usage.
+if something goes wrong. Check the output for details.
 .SH SEE ALSO
-.BR nohup (1),
-.BR setsid (1),
-.BR screen (1),
+.BR nohup (1)
+(if you enjoy suffering),
+.BR screen (1)
+(if you enjoy complexity),
 .BR tmux (1)
+(okay, tmux is actually pretty good)
 .SH BUGS
-Report bugs at https://github.com/metruzanca/bj/issues
+Report issues at https://github.com/metruzanca/bj/issues
+.PP
+Or just use
+.B \-\-help
+next time. It's right there. Always ready. Unlike this man page, which
+required you to pipe things and probably Google the syntax for your OS.
 .SH AUTHOR
-Written with love and AI assistance.
+Written with love, sass, and a little help from AI.
+.SH "FINAL THOUGHTS"
+You made it to the end of a man page. That's... a choice. The same information
+is available via
+.B bj \-\-help
+in a fraction of the time, with colors and everything.
+.PP
+But hey, there's something to be said for the classics.
