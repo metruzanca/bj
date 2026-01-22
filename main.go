@@ -974,7 +974,7 @@ func printManPage() {
 	fmt.Print(manPage)
 }
 
-const manPage = `.TH BJ 1 "January 2026" "bj 0.3" "User Commands"
+const manPage = `.TH BJ 1 "January 20, 2026" "bj 0.3" "User Commands"
 .SH NAME
 bj \- background jobs manager (and so much more)
 .SH SYNOPSIS
@@ -984,16 +984,16 @@ bj \- background jobs manager (and so much more)
 .PP
 Look, you're reading a man page. That's adorable. But honestly?
 .B bj \-\-help
-is right there, waiting for you. It's faster, it's always up to date, and
-it doesn't require piping through
+is right there, waiting for you. It's faster, it's always up to date,
+and it doesn't require piping through
 .BR man (1)
 like some kind of animal.
 .PP
 But fine. You want the \fIfull experience\fR. Let's do this.
 .SH DESCRIPTION
 .B bj
-is a lightweight CLI tool that handles your commands in the background so you
-can focus on more... \fIpressing\fR matters. It uses
+is a lightweight CLI tool that handles your commands in the background
+so you can focus on more... \fIpressing\fR matters. It uses
 .BR setsid (2)
 to fully detach processes, ensuring they keep going long after you've
 moved on. Some might call that stamina.
@@ -1005,11 +1005,11 @@ Before we go any further, have you considered
 .B bj \-\-init fish
 or
 .BR "bj \-\-init zsh" ?
-The shell integration gives you tab completion that \fIanticipates your needs\fR.
+The shell integration gives you tab completion that
+\fIanticipates your needs\fR.
 It's like bj reading your mind, but for command-line arguments.
 .PP
 And if you want help on a specific command, try something like:
-.PP
 .RS
 .nf
 bj \-\-list \-\-help
@@ -1017,8 +1017,8 @@ bj \-\-retry \-\-help
 .fi
 .RE
 .PP
-Each command has its own detailed help. It's intimate. Personal. Much better
-than this impersonal wall of text you're currently squinting at.
+Each command has its own detailed help. It's intimate. Personal.
+Much better than this impersonal wall of text you're squinting at.
 .PP
 But you're still here. I respect the commitment.
 .SH OPTIONS
@@ -1040,7 +1040,8 @@ Sometimes you need to stop things abruptly. No judgment.
 .TP
 .BR \-\-retry [ =\fIN\fR ]
 bj doesn't give up easily. Use alone to retry a ruined job, or with a
-command to keep trying until satisfaction (or N attempts, whichever comes first).
+command to keep trying until satisfaction (or N attempts, whichever
+comes first).
 .TP
 .BI \-\-delay " secs"
 Pace yourself. Wait between retry attempts.
@@ -1061,7 +1062,8 @@ like a sophisticated individual.
 .BR \-\-init " fish" | zsh
 .B "You should really do this."
 Sets up shell integration with completions and a prompt function.
-Your future self will thank you. Your present self might even feel things.
+Your future self will thank you. Your present self might even feel
+things.
 .TP
 .BR \-h ", " \-\-help
 The \fIactual\fR way to get help. Faster, more contextual, and doesn't
@@ -1071,7 +1073,6 @@ works. Use
 .B bj <command> \-\-help
 for the good stuff.
 .SH EXAMPLES
-.PP
 .RS
 .nf
 bj npm install            # Let bj handle your package needs
@@ -1085,13 +1086,14 @@ bj \-\-prune                # Clean up after a satisfying session
 .PP
 But really, just type
 .B bj
-and press tab a few times. The shell integration makes this \fIso\fR much better.
+and press tab a few times.
+The shell integration makes this \fIso\fR much better.
 .SH FILES
 .TP
 .I ~/.config/bj/
-Where bj keeps its private data. Jobs, logs, configuration. Don't be weird about it.
+Where bj keeps its private data. Jobs, logs, configuration.
+Don't be weird about it.
 .SH CONFIGURATION
-.PP
 .RS
 .nf
 # ~/.config/bj/bj.toml
@@ -1106,14 +1108,12 @@ See the example config at
 for all the options, lovingly commented.
 .SH "SHELL INTEGRATION (SERIOUSLY, DO THIS)"
 .SS Fish
-.PP
 .RS
 .nf
 echo 'bj \-\-init fish | source' >> ~/.config/fish/config.fish
 .fi
 .RE
 .SS Zsh
-.PP
 .RS
 .nf
 echo 'eval "$(bj \-\-init zsh)"' >> ~/.zshrc
@@ -1147,8 +1147,8 @@ required you to pipe things and probably Google the syntax for your OS.
 .SH AUTHOR
 Written with love, sass, and a little help from AI.
 .SH "FINAL THOUGHTS"
-You made it to the end of a man page. That's... a choice. The same information
-is available via
+You made it to the end of a man page. That's... a choice.
+The same information is available via
 .B bj \-\-help
 in a fraction of the time, with colors and everything.
 .PP
