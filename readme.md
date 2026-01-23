@@ -111,6 +111,7 @@ See [`.github/bj.toml`](.github/bj.toml) for a fully documented example config w
 | `log_dir` | `"logs"` | Where to store log files. Relative to config dir, or absolute path. |
 | `viewer` | `"less"` | Command to view logs (`less`, `cat`, `bat`, `code`, etc.) |
 | `auto_prune_hours` | `24` | Auto-delete completed jobs older than N hours. Set to `0` to disable. |
+| `nsfw` | `false` | Enable explicit mode for raunchier messages. |
 
 ## Files
 

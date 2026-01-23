@@ -45,3 +45,14 @@
 # Default: 24 (hours)
 #
 # auto_prune_hours = 24
+
+# ─────────────────────────────────────────────────────────────────────────────
+# NSFW Mode
+# ─────────────────────────────────────────────────────────────────────────────
+# Enable explicit mode for raunchier, more... suggestive messages.
+# The default messages are playful but workplace-appropriate.
+# Turn this on if you want bj to really let loose.
+#
+# Default: false
+#
+# nsfw = false

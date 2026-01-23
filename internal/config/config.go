@@ -17,6 +17,7 @@ type Config struct {
 	LogDir         string `toml:"log_dir"`
 	Viewer         string `toml:"viewer"`
 	AutoPruneHours int    `toml:"auto_prune_hours"` // auto-clear done jobs older than N hours (0 = disabled)
+	NSFW           bool   `toml:"nsfw"`             // enable explicit mode for raunchier messages
 }
 
 // ConfigDir returns the bj config directory path

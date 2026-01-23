@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/metruzanca/bj/internal/config"
+	"github.com/metruzanca/bj/internal/locales"
 	"github.com/metruzanca/bj/internal/runner"
 	"github.com/metruzanca/bj/internal/tracker"
 )
@@ -61,26 +62,30 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Load config first so we can initialize locales
+	cfg, err := config.Load()
+	if err != nil {
+		// Can't use locales.Msg yet, use a hardcoded message
+		exitWithError(fmt.Sprintf("bj couldn't get comfortable: %v", err))
+	}
+
+	// Initialize locales based on config
+	locales.Init(cfg.NSFW)
+
 	// Validate --id is only used with --retry
 	if retryJobID != 0 && retryFlag < 0 {
-		exitWithError("--id only makes sense with --retry. They go together like... well, you know.")
+		exitWithError(locales.Msg("err.id_only_with_retry"))
 	}
 
 	// Validate --delay is only used with --retry
 	if retryDelay != 1 && retryFlag < 0 {
-		exitWithError("--delay without --retry? bj needs something to delay between.")
-	}
-
-	// Load config
-	cfg, err := config.Load()
-	if err != nil {
-		exitWithError("bj couldn't get comfortable: %v", err)
+		exitWithError(locales.Msg("err.delay_only_with_retry"))
 	}
 
 	// Create tracker
 	t, err := tracker.New()
 	if err != nil {
-		exitWithError("bj lost track of things: %v", err)
+		exitWithError(locales.Msg("err.tracker_init", err))
 	}
 
 	// Auto-prune if configured
@@ -110,13 +115,13 @@ func main() {
 
 	case arg == "--completion":
 		if len(args) < 2 {
-			exitWithError("Usage: bj --completion <fish|zsh>")
+			exitWithError(locales.Msg("err.completion_usage"))
 		}
 		printCompletion(args[1])
 
 	case arg == "--init":
 		if len(args) < 2 {
-			exitWithError("Usage: bj --init <fish|zsh>")
+			exitWithError(locales.Msg("err.init_usage"))
 		}
 		printInit(args[1], cfg, t)
 
@@ -131,7 +136,7 @@ func main() {
 		if len(args) > 1 {
 			id, err := strconv.Atoi(args[1])
 			if err != nil {
-				exitWithError("bj needs a valid number, not '%s'", args[1])
+				exitWithError(locales.Msg("err.invalid_number", args[1]))
 			}
 			jobID = id
 		}
@@ -148,7 +153,7 @@ func main() {
 		if len(args) > 1 {
 			id, err := strconv.Atoi(args[1])
 			if err != nil {
-				exitWithError("bj needs a valid number, not '%s'", args[1])
+				exitWithError(locales.Msg("err.invalid_number", args[1]))
 			}
 			jobID = id
 		}
@@ -157,26 +162,26 @@ func main() {
 	case arg == "--complete":
 		// Internal command: mark job as complete
 		if len(args) < 3 {
-			fmt.Fprintf(os.Stderr, "Usage: bj --complete <job_id> <exit_code>\n")
+			fmt.Fprintf(os.Stderr, "%s\n", locales.Msg("err.complete_usage"))
 			os.Exit(1)
 		}
 		jobID, err := strconv.Atoi(args[1])
 		if err != nil {
-			exitWithError("bj needs a valid job ID, not '%s'", args[1])
+			exitWithError(locales.Msg("err.invalid_job_id", args[1]))
 		}
 		exitCode, err := strconv.Atoi(args[2])
 		if err != nil {
-			exitWithError("bj needs a valid exit code, not '%s'", args[2])
+			exitWithError(locales.Msg("err.invalid_exit_code", args[2]))
 		}
 		r := runner.New(cfg, t)
 		if err := r.Complete(jobID, exitCode); err != nil {
-			exitWithError("bj couldn't finish properly: %v", err)
+			exitWithError(locales.Msg("err.complete_failed", err))
 		}
 
 	default:
 		// Check for unknown flags - don't accidentally run them as commands
 		if strings.HasPrefix(arg, "-") {
-			exitWithError("Unknown flag: %s. Try 'bj --help' for usage.", arg)
+			exitWithError(locales.Msg("err.unknown_flag", arg))
 		}
 		// Everything else is treated as a command to run
 		command := strings.Join(args, " ")
@@ -200,24 +205,24 @@ func filterArgs(args []string, jsonFlag *bool, helpFlag *bool, retryFlagOut *int
 			val := strings.TrimPrefix(arg, "--retry=")
 			n, err := strconv.Atoi(val)
 			if err != nil || n < 1 {
-				fmt.Fprintf(os.Stderr, "bj needs a positive number for retry limit, not '%s'\n", val)
+				fmt.Fprintln(os.Stderr, locales.Msg("err.retry_positive_number", val))
 				os.Exit(1)
 			}
 			*retryFlagOut = n
 		case arg == "--id":
 			// --id requires a following positive number
 			if i+1 >= len(args) {
-				fmt.Fprintln(os.Stderr, "--id needs a job ID to go with it")
+				fmt.Fprintln(os.Stderr, locales.Msg("err.id_needs_value"))
 				os.Exit(1)
 			}
 			i++
 			id, err := strconv.Atoi(args[i])
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "bj needs a valid job ID, not '%s'\n", args[i])
+				fmt.Fprintln(os.Stderr, locales.Msg("err.invalid_job_id", args[i]))
 				os.Exit(1)
 			}
 			if id < 1 {
-				fmt.Fprintf(os.Stderr, "Job IDs start at 1. '%d' won't satisfy bj.\n", id)
+				fmt.Fprintln(os.Stderr, locales.Msg("err.job_id_minimum", id))
 				os.Exit(1)
 			}
 			*retryJobIDOut = id
@@ -230,13 +235,13 @@ func filterArgs(args []string, jsonFlag *bool, helpFlag *bool, retryFlagOut *int
 		case arg == "--delay":
 			// --delay requires a following number
 			if i+1 >= len(args) {
-				fmt.Fprintln(os.Stderr, "--delay needs a number of seconds")
+				fmt.Fprintln(os.Stderr, locales.Msg("err.delay_needs_value"))
 				os.Exit(1)
 			}
 			i++
 			d, err := strconv.Atoi(args[i])
 			if err != nil || d < 0 {
-				fmt.Fprintf(os.Stderr, "bj needs a non-negative delay, not '%s'\n", args[i])
+				fmt.Fprintln(os.Stderr, locales.Msg("err.delay_non_negative", args[i]))
 				os.Exit(1)
 			}
 			retryDelay = d
@@ -244,7 +249,7 @@ func filterArgs(args []string, jsonFlag *bool, helpFlag *bool, retryFlagOut *int
 			val := strings.TrimPrefix(arg, "--delay=")
 			d, err := strconv.Atoi(val)
 			if err != nil || d < 0 {
-				fmt.Fprintf(os.Stderr, "bj needs a non-negative delay, not '%s'\n", val)
+				fmt.Fprintln(os.Stderr, locales.Msg("err.delay_non_negative", val))
 				os.Exit(1)
 			}
 			retryDelay = d
@@ -256,8 +261,7 @@ func filterArgs(args []string, jsonFlag *bool, helpFlag *bool, retryFlagOut *int
 }
 
 // exitWithError prints error (or JSON) and exits
-func exitWithError(format string, args ...interface{}) {
-	msg := fmt.Sprintf(format, args...)
+func exitWithError(msg string) {
 	if jsonOutput {
 		outputJSON(map[string]interface{}{"error": msg})
 	} else {
@@ -275,202 +279,23 @@ func outputJSON(v interface{}) {
 func printUsage(command string) {
 	switch command {
 	case "--list":
-		fmt.Println(`bj --list - See what bj is working on
-
-Usage: bj --list [--running] [--failed] [--done] [--json]
-
-Shows all tracked jobs with their status, start time, duration, and command.
-Running jobs are shown normally, completed jobs are dimmed, ruined jobs show
-the exit code in red.
-
-Filters:
-  --running   Only show jobs that are still going
-  --failed    Only show ruined jobs (non-zero exit code)
-  --done      Only show jobs that finished successfully
-
-Options:
-  --json      Output raw job data as JSON
-
-Examples:
-  bj --list           Check how bj is doing
-  bj --list --running See what bj is actively working on
-  bj --list --failed  Review the ruined jobs
-  bj --list --json    Get the raw details for scripting`)
-
+		fmt.Println(locales.Msg("help.list"))
 	case "--logs":
-		fmt.Println(`bj --logs - Watch bj's performance
-
-Usage: bj --logs [id] [--json]
-
-View the output (stdout/stderr) of a job. If no ID is specified, shows the
-most recent job's logs.
-
-Arguments:
-  id        Job ID to view (optional, defaults to latest)
-
-Options:
-  --json    Output job metadata and log content as JSON
-
-Examples:
-  bj --logs         See bj's latest output
-  bj --logs 5       Inspect a specific session
-  bj --logs --json  Get logs in JSON format`)
-
+		fmt.Println(locales.Msg("help.logs"))
 	case "--prune":
-		fmt.Println(`bj --prune - Clean up when bj is finished
-
-Usage: bj --prune [--json]
-
-Removes all completed jobs (any exit code) from the job list and deletes
-their log files. Only running jobs are kept. If all jobs are pruned, the
-ID counter resets to 1.
-
-Options:
-  --json    Output prune count as JSON
-
-Examples:
-  bj --prune        Wipe the slate clean after bj is done`)
-
+		fmt.Println(locales.Msg("help.prune"))
 	case "--kill":
-		fmt.Println(`bj --kill - Make bj stop what it's doing
-
-Usage: bj --kill [id] [--json]
-
-Terminates a running job. Sends SIGTERM to the process group, stopping
-the entire job tree. If no ID is specified, kills the most recent running job.
-
-Arguments:
-  id        Job ID to kill (optional, defaults to latest running)
-
-Options:
-  --json    Output killed job info as JSON
-
-Examples:
-  bj --kill         Stop the latest job mid-stroke
-  bj --kill 5       Pull out of job #5 specifically`)
-
+		fmt.Println(locales.Msg("help.kill"))
 	case "--gc":
-		fmt.Println(`bj --gc - Find jobs that ended unexpectedly
-
-Usage: bj --gc [--json]
-
-Detects orphaned jobs that appear to be running but whose process is gone
-(e.g., after a crash or reboot). These ruined jobs are marked as failed
-with exit code -1.
-
-Options:
-  --json    Output collected count as JSON
-
-Examples:
-  bj --gc           Clean up after an unexpected interruption`)
-
+		fmt.Println(locales.Msg("help.gc"))
 	case "--retry":
-		fmt.Println(`bj --retry - Keep going until bj finishes the job
-
-Usage:
-  bj --retry[=N] [--delay S] <command>   Run a new command with retry
-  bj --retry[=N] [--delay S] [--id ID]   Retry an existing ruined job
-
-The --retry flag can be used two ways:
-  1. With a command: runs the command, retrying on failure
-  2. Without a command: retries an existing ruined job
-
-Options:
-  --retry         Keep teasing until success (no limit)
-  --retry=N       Stop after N attempts (deny after N tries)
-  --delay S       Wait S seconds between attempts (default: 1)
-  --id ID         Specify which ruined job to retry (defaults to most recent)
-  --json          Output job info as JSON
-
-Examples:
-  bj --retry npm test              Keep running tests until they pass
-  bj --retry=3 make build          Try building up to 3 times
-  bj --retry --delay 5 curl ...    Wait 5 seconds between attempts
-  bj --retry                       Retry the most recent ruined job
-  bj --retry --id 5                Retry job #5 until success
-  bj --retry=3 --delay 10 --id 5   Retry job #5 up to 3 times, 10s apart`)
-
+		fmt.Println(locales.Msg("help.retry"))
 	case "--completion":
-		fmt.Println(`bj --completion - Output shell completions
-
-Usage: bj --completion <shell>
-
-Outputs tab-completion definitions for the specified shell.
-Typically you'd redirect this to a completions file.
-
-Arguments:
-  shell     Shell type: fish, zsh
-
-Examples:
-  bj --completion fish > ~/.config/fish/completions/bj.fish
-  bj --completion zsh > ~/.zsh/completions/_bj
-
-Note: If you use --init, completions are installed automatically.`)
-
+		fmt.Println(locales.Msg("help.completion"))
 	case "--init":
-		fmt.Println(`bj --init - Set up shell integration
-
-Usage: bj --init <shell>
-
-Outputs shell integration code and automatically installs completions.
-Source this in your shell config for the full bj experience.
-
-Arguments:
-  shell     Shell type: fish, zsh
-
-Features:
-  - Automatically installs/updates completions
-  - Provides __bj_prompt_info function to show running job count
-
-Setup:
-  Fish: echo 'bj --init fish | source' >> ~/.config/fish/config.fish
-  Zsh:  echo 'eval "$(bj --init zsh)"' >> ~/.zshrc
-
-The prompt function shows [bj:N] when N jobs are running. Add it to your
-prompt to always know when bj is busy.`)
-
+		fmt.Println(locales.Msg("help.init"))
 	default:
-		fmt.Println(`bj - Background Jobs
-
-Give bj a command and it'll handle the rest while you sit back and relax.
-
-Usage:
-  bj <command>              Slip a command in the background
-  bj --retry[=N] <command>  Run with retry until success (or N attempts)
-  bj --list                 See what bj is working on
-  bj --logs [id]            Watch bj's performance
-  bj --kill [id]            Stop a job mid-action
-  bj --retry[=N] [--id ID]  Retry a ruined job
-  bj --prune                Clean up when bj is finished
-  bj --gc                   Find jobs that were ruined unexpectedly
-
-Shell Integration:
-  bj --completion <sh>  Output shell completions (fish, zsh)
-  bj --init <sh>        Output prompt integration (fish, zsh)
-  bj --man              Output manual page (pipe to man for viewing)
-
-Options:
-  --retry[=N]         Keep trying until success (or limit to N attempts)
-  --id ID             Specify job ID for --retry (defaults to most recent)
-  --json              Output in JSON format (works with all commands)
-  -h, --help          Show this help (use with commands for detailed help)
-
-Examples:
-  bj sleep 10               Let bj handle your sleep needs
-  bj npm install            bj npm while you grab coffee
-  bj --retry npm test       Keep testing until it passes
-  bj --retry=3 make build   Try building up to 3 times
-  bj --list                 Check how bj is doing
-  bj --logs                 See bj's latest output
-  bj --kill                 Stop the current job abruptly
-  bj --gc                   Find ruined jobs after a crash
-  bj --retry                Retry the most recent ruined job
-  bj --prune                Tidy up after a satisfying bj
-
-Shell Setup:
-  Fish: echo 'bj --init fish | source' >> ~/.config/fish/config.fish
-  Zsh:  echo 'eval "$(bj --init zsh)"' >> ~/.zshrc
-        (ensure ~/.zsh/completions is in your fpath before compinit)`)
+		fmt.Println(locales.Msg("help.main"))
 	}
 }
 
@@ -478,7 +303,7 @@ func runCommand(cfg *config.Config, t *tracker.Tracker, command string) {
 	r := runner.New(cfg, t)
 	jobID, err := r.Run(command)
 	if err != nil {
-		exitWithError("bj couldn't get it up: %v", err)
+		exitWithError(locales.Msg("err.run_failed", err))
 	}
 	if jsonOutput {
 		outputJSON(map[string]interface{}{
@@ -487,7 +312,7 @@ func runCommand(cfg *config.Config, t *tracker.Tracker, command string) {
 			"status":  "started",
 		})
 	} else {
-		fmt.Printf("[%d] bj is on it: %s\n", jobID, command)
+		fmt.Println(locales.Msg("job.started", jobID, command))
 	}
 }
 
@@ -534,7 +359,7 @@ func relativeTime(t time.Time) string {
 func listJobs(t *tracker.Tracker) {
 	jobs, err := t.List()
 	if err != nil {
-		exitWithError("bj can't show you what it's got: %v", err)
+		exitWithError(locales.Msg("err.list_failed", err))
 	}
 
 	// Apply filters if any are set
@@ -558,9 +383,9 @@ func listJobs(t *tracker.Tracker) {
 			outputJSON([]interface{}{})
 		} else {
 			if hasFilter {
-				fmt.Println("No jobs match your criteria. bj has nothing to show.")
+				fmt.Println(locales.Msg("list.empty_filtered"))
 			} else {
-				fmt.Println("bj has nothing going on. Give it something to do!")
+				fmt.Println(locales.Msg("list.empty"))
 			}
 		}
 		return
@@ -668,28 +493,28 @@ func printJobIDs(t *tracker.Tracker) {
 func pruneJobs(t *tracker.Tracker) {
 	count, err := t.Prune()
 	if err != nil {
-		exitWithError("bj made a mess while cleaning up: %v", err)
+		exitWithError(locales.Msg("err.prune_failed", err))
 	}
 	if jsonOutput {
 		outputJSON(map[string]interface{}{"pruned": count})
 	} else if count == 0 {
-		fmt.Println("Nothing to clean up. bj keeps it tidy.")
+		fmt.Println(locales.Msg("prune.nothing"))
 	} else {
-		fmt.Printf("Wiped away %d finished job(s). Fresh and ready for more.\n", count)
+		fmt.Println(locales.Msg("prune.success", count))
 	}
 }
 
 func garbageCollect(t *tracker.Tracker) {
 	count, err := t.GarbageCollect()
 	if err != nil {
-		exitWithError("bj had trouble cleaning up its mess: %v", err)
+		exitWithError(locales.Msg("err.gc_failed", err))
 	}
 	if jsonOutput {
 		outputJSON(map[string]interface{}{"collected": count})
 	} else if count == 0 {
-		fmt.Println("No orphaned jobs found. bj keeps track of all its encounters.")
+		fmt.Println(locales.Msg("gc.nothing"))
 	} else {
-		fmt.Printf("Found %d ruined job(s) that ended without bj noticing. Marked as failed.\n", count)
+		fmt.Println(locales.Msg("gc.success", count))
 	}
 }
 
@@ -701,13 +526,13 @@ func killJob(t *tracker.Tracker, jobID int) {
 		// Find the most recent running job
 		job, err = t.LatestRunning()
 		if err != nil {
-			exitWithError("bj can't check its active sessions: %v", err)
+			exitWithError(locales.Msg("err.kill_check_failed", err))
 		}
 		if job == nil {
 			if jsonOutput {
 				exitWithError("no running jobs to kill")
 			}
-			fmt.Println("bj isn't doing anything right now. Nothing to stop!")
+			fmt.Println(locales.Msg("kill.no_running"))
 			os.Exit(0)
 		}
 		jobID = job.ID
@@ -715,7 +540,7 @@ func killJob(t *tracker.Tracker, jobID int) {
 
 	job, err = t.Kill(jobID)
 	if err != nil {
-		exitWithError("bj couldn't pull out: %v", err)
+		exitWithError(locales.Msg("err.kill_failed", err))
 	}
 
 	if jsonOutput {
@@ -725,7 +550,7 @@ func killJob(t *tracker.Tracker, jobID int) {
 			"status":  "killed",
 		})
 	} else {
-		fmt.Printf("[%d] bj stopped abruptly: %s\n", job.ID, job.Command)
+		fmt.Println(locales.Msg("job.killed", job.ID, job.Command))
 	}
 }
 
@@ -733,13 +558,13 @@ func killJob(t *tracker.Tracker, jobID int) {
 func runCommandWithRetry(cfg *config.Config, t *tracker.Tracker, command string, maxAttempts int, delaySecs int) {
 	pwd, err := os.Getwd()
 	if err != nil {
-		exitWithError("bj couldn't figure out where you are: %v", err)
+		exitWithError(locales.Msg("err.retry_pwd_failed", err))
 	}
 
 	r := runner.New(cfg, t)
 	jobID, err := r.RunWithRetry(command, pwd, maxAttempts, delaySecs)
 	if err != nil {
-		exitWithError("bj couldn't get it up: %v", err)
+		exitWithError(locales.Msg("err.run_failed", err))
 	}
 
 	if jsonOutput {
@@ -752,11 +577,11 @@ func runCommandWithRetry(cfg *config.Config, t *tracker.Tracker, command string,
 		})
 	} else {
 		if maxAttempts == 0 {
-			fmt.Printf("[%d] bj will keep edging until it succeeds: %s\n", jobID, command)
+			fmt.Println(locales.Msg("job.retry_unlimited", jobID, command))
 		} else if maxAttempts == 1 {
-			fmt.Printf("[%d] bj will give it one shot: %s\n", jobID, command)
+			fmt.Println(locales.Msg("job.retry_one", jobID, command))
 		} else {
-			fmt.Printf("[%d] bj will tease up to %d times before giving up: %s\n", jobID, maxAttempts, command)
+			fmt.Println(locales.Msg("job.retry_limited", jobID, maxAttempts, command))
 		}
 	}
 }
@@ -770,7 +595,7 @@ func retryExistingJob(cfg *config.Config, t *tracker.Tracker, jobID int, maxAtte
 		// Find the most recent failed job
 		jobs, err := t.List()
 		if err != nil {
-			exitWithError("bj can't check its history: %v", err)
+			exitWithError(locales.Msg("err.retry_history_failed", err))
 		}
 		for _, j := range jobs {
 			if j.ExitCode != nil && *j.ExitCode != 0 {
@@ -782,32 +607,32 @@ func retryExistingJob(cfg *config.Config, t *tracker.Tracker, jobID int, maxAtte
 			if jsonOutput {
 				exitWithError("no ruined jobs to retry")
 			}
-			fmt.Println("bj hasn't ruined anything yet. Nothing to retry!")
+			fmt.Println(locales.Msg("retry.no_failed"))
 			os.Exit(0)
 		}
 	} else {
 		job, err = t.Get(jobID)
 		if err != nil {
-			exitWithError("bj can't find that one: %v", err)
+			exitWithError(locales.Msg("err.retry_find_failed", err))
 		}
 		if job == nil {
-			exitWithError("Job %d? bj doesn't remember that.", jobID)
+			exitWithError(locales.Msg("err.job_not_found", jobID))
 		}
 	}
 
 	// Check if job actually failed
 	if job.ExitCode == nil {
-		exitWithError("Job %d is still going. bj doesn't stop until it's done.", job.ID)
+		exitWithError(locales.Msg("err.job_still_running", job.ID))
 	}
 	if *job.ExitCode == 0 {
-		exitWithError("Job %d already finished successfully. No need to go again.", job.ID)
+		exitWithError(locales.Msg("err.job_already_succeeded", job.ID))
 	}
 
 	// Run the job with retry wrapper
 	r := runner.New(cfg, t)
 	newJobID, err := r.RunWithRetry(job.Command, job.PWD, maxAttempts, delaySecs)
 	if err != nil {
-		exitWithError("bj couldn't get started again: %v", err)
+		exitWithError(locales.Msg("err.retry_start_failed", err))
 	}
 
 	if jsonOutput {
@@ -821,11 +646,11 @@ func retryExistingJob(cfg *config.Config, t *tracker.Tracker, jobID int, maxAtte
 		})
 	} else {
 		if maxAttempts == 0 {
-			fmt.Printf("[%d] bj will keep edging until it succeeds: %s\n", newJobID, job.Command)
+			fmt.Println(locales.Msg("job.retry_unlimited", newJobID, job.Command))
 		} else if maxAttempts == 1 {
-			fmt.Printf("[%d] bj is giving it one more go: %s\n", newJobID, job.Command)
+			fmt.Println(locales.Msg("job.retry_one_existing", newJobID, job.Command))
 		} else {
-			fmt.Printf("[%d] bj will tease up to %d times before giving up: %s\n", newJobID, maxAttempts, job.Command)
+			fmt.Println(locales.Msg("job.retry_limited", newJobID, maxAttempts, job.Command))
 		}
 	}
 }
@@ -837,35 +662,35 @@ func viewLogs(cfg *config.Config, t *tracker.Tracker, jobID int) {
 	if jobID == 0 {
 		job, err = t.Latest()
 		if err != nil {
-			exitWithError("bj can't recall the last session: %v", err)
+			exitWithError(locales.Msg("err.logs_recall_failed", err))
 		}
 		if job == nil {
 			if jsonOutput {
 				exitWithError("no jobs found")
 			}
-			fmt.Println("bj hasn't done anything yet. Get it started first!")
+			fmt.Println(locales.Msg("logs.no_jobs"))
 			os.Exit(0)
 		}
 	} else {
 		job, err = t.Get(jobID)
 		if err != nil {
-			exitWithError("bj can't find that one: %v", err)
+			exitWithError(locales.Msg("err.logs_find_failed", err))
 		}
 		if job == nil {
-			exitWithError("Job %d? bj doesn't remember that.", jobID)
+			exitWithError(locales.Msg("err.job_not_found", jobID))
 		}
 	}
 
 	// Check if log file exists
 	if _, err := os.Stat(job.LogFile); os.IsNotExist(err) {
-		exitWithError("bj swallowed the logs. File not found: %s", job.LogFile)
+		exitWithError(locales.Msg("err.logs_not_found", job.LogFile))
 	}
 
 	// JSON mode: output log contents
 	if jsonOutput {
 		content, err := os.ReadFile(job.LogFile)
 		if err != nil {
-			exitWithError("bj couldn't read the logs: %v", err)
+			exitWithError(locales.Msg("err.logs_read_failed", err))
 		}
 		outputJSON(map[string]interface{}{
 			"job":     job,
@@ -881,18 +706,18 @@ func viewLogs(cfg *config.Config, t *tracker.Tracker, jobID int) {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		exitWithError("bj choked while opening logs: %v", err)
+		exitWithError(locales.Msg("err.logs_open_failed", err))
 	}
 }
 
 func printCompletion(shell string) {
 	switch shell {
 	case "fish":
-		fmt.Print(fishCompletion)
+		fmt.Print(locales.Msg("completion.fish"))
 	case "zsh":
-		fmt.Print(zshCompletion)
+		fmt.Print(locales.Msg("completion.zsh"))
 	default:
-		exitWithError("Unknown shell: %s. bj knows fish and zsh.", shell)
+		exitWithError(locales.Msg("err.unknown_shell", shell))
 	}
 }
 
@@ -908,13 +733,13 @@ func printInit(shell string, cfg *config.Config, t *tracker.Tracker) {
 	case "fish":
 		// Write completions file if needed, then output prompt init
 		writeFishCompletions()
-		fmt.Print(fishInit)
+		fmt.Print(locales.Msg("init.fish"))
 	case "zsh":
 		// Write completions file if needed, then output prompt init
 		writeZshCompletions()
-		fmt.Print(zshInit)
+		fmt.Print(locales.Msg("init.zsh"))
 	default:
-		exitWithError("Unknown shell: %s. bj knows fish and zsh.", shell)
+		exitWithError(locales.Msg("err.unknown_shell", shell))
 	}
 }
 
@@ -929,9 +754,11 @@ func writeFishCompletions() {
 	completionsDir := filepath.Join(homeDir, ".config", "fish", "completions")
 	completionsFile := filepath.Join(completionsDir, "bj.fish")
 
+	completionContent := locales.Msg("completion.fish")
+
 	// Check if content has changed
 	existing, err := os.ReadFile(completionsFile)
-	if err == nil && string(existing) == fishCompletion {
+	if err == nil && string(existing) == completionContent {
 		return // already up to date
 	}
 
@@ -941,7 +768,7 @@ func writeFishCompletions() {
 	}
 
 	// Write completions
-	os.WriteFile(completionsFile, []byte(fishCompletion), 0644)
+	os.WriteFile(completionsFile, []byte(completionContent), 0644)
 }
 
 // writeZshCompletions writes zsh completions to ~/.zsh/completions/_bj
@@ -955,9 +782,11 @@ func writeZshCompletions() {
 	completionsDir := filepath.Join(homeDir, ".zsh", "completions")
 	completionsFile := filepath.Join(completionsDir, "_bj")
 
+	completionContent := locales.Msg("completion.zsh")
+
 	// Check if content has changed
 	existing, err := os.ReadFile(completionsFile)
-	if err == nil && string(existing) == zshCompletion {
+	if err == nil && string(existing) == completionContent {
 		return // already up to date
 	}
 
@@ -967,304 +796,9 @@ func writeZshCompletions() {
 	}
 
 	// Write completions
-	os.WriteFile(completionsFile, []byte(zshCompletion), 0644)
+	os.WriteFile(completionsFile, []byte(completionContent), 0644)
 }
 
 func printManPage() {
-	fmt.Print(manPage)
+	fmt.Print(locales.Msg("man.page"))
 }
-
-const manPage = `.TH BJ 1 "January 20, 2026" "bj 0.3" "User Commands"
-.SH NAME
-bj \- background jobs manager (and so much more)
-.SH SYNOPSIS
-.B bj
-.RI [ options ]
-.I command
-.PP
-Look, you're reading a man page. That's adorable. But honestly?
-.B bj \-\-help
-is right there, waiting for you. It's faster, it's always up to date,
-and it doesn't require piping through
-.BR man (1)
-like some kind of animal.
-.PP
-But fine. You want the \fIfull experience\fR. Let's do this.
-.SH DESCRIPTION
-.B bj
-is a lightweight CLI tool that handles your commands in the background
-so you can focus on more... \fIpressing\fR matters. It uses
-.BR setsid (2)
-to fully detach processes, ensuring they keep going long after you've
-moved on. Some might call that stamina.
-.PP
-Give bj a command and it'll handle the rest while you sit back and relax.
-No strings attached. Well, no \fIterminal\fR attached.
-.SH "A GENTLE SUGGESTION"
-Before we go any further, have you considered
-.B bj \-\-init fish
-or
-.BR "bj \-\-init zsh" ?
-The shell integration gives you tab completion that
-\fIanticipates your needs\fR.
-It's like bj reading your mind, but for command-line arguments.
-.PP
-And if you want help on a specific command, try something like:
-.RS
-.nf
-bj \-\-list \-\-help
-bj \-\-retry \-\-help
-.fi
-.RE
-.PP
-Each command has its own detailed help. It's intimate. Personal.
-Much better than this impersonal wall of text you're squinting at.
-.PP
-But you're still here. I respect the commitment.
-.SH OPTIONS
-These are the highlights. For the \fIreal\fR details, use
-.B \-\-help
-on individual commands. They'll treat you right.
-.TP
-.B \-\-list
-See what bj has been up to. Add
-.BR \-\-running ", " \-\-failed ", or " \-\-done
-to filter by... performance.
-.TP
-.BI \-\-logs " [id]"
-Watch bj's output. Every moan, groan, and triumphant success message.
-Defaults to the most recent job if you can't remember which one.
-.TP
-.BI \-\-kill " [id]"
-Sometimes you need to stop things abruptly. No judgment.
-.TP
-.BR \-\-retry [ =\fIN\fR ]
-bj doesn't give up easily. Use alone to retry a ruined job, or with a
-command to keep trying until satisfaction (or N attempts, whichever
-comes first).
-.TP
-.BI \-\-delay " secs"
-Pace yourself. Wait between retry attempts.
-.TP
-.B \-\-prune
-Clean up when bj is finished. Removes completed jobs and their logs.
-A tidy bj is a happy bj.
-.TP
-.B \-\-gc
-Find jobs that were unexpectedly ruined. Sometimes things end badly
-without warning. This helps you find closure.
-.TP
-.B \-\-json
-For the robots among us. Or if you're piping to
-.BR jq (1)
-like a sophisticated individual.
-.TP
-.BR \-\-init " fish" | zsh
-.B "You should really do this."
-Sets up shell integration with completions and a prompt function.
-Your future self will thank you. Your present self might even feel
-things.
-.TP
-.BR \-h ", " \-\-help
-The \fIactual\fR way to get help. Faster, more contextual, and doesn't
-require you to remember how your system's
-.BR man (1)
-works. Use
-.B bj <command> \-\-help
-for the good stuff.
-.SH EXAMPLES
-.RS
-.nf
-bj npm install            # Let bj handle your package needs
-bj \-\-retry npm test       # Keep going until it passes
-bj \-\-list                 # Check on bj's progress
-bj \-\-logs                 # See the latest output
-bj \-\-kill                 # Stop it right there
-bj \-\-prune                # Clean up after a satisfying session
-.fi
-.RE
-.PP
-But really, just type
-.B bj
-and press tab a few times.
-The shell integration makes this \fIso\fR much better.
-.SH FILES
-.TP
-.I ~/.config/bj/
-Where bj keeps its private data. Jobs, logs, configuration.
-Don't be weird about it.
-.SH CONFIGURATION
-.RS
-.nf
-# ~/.config/bj/bj.toml
-log_dir = "logs"
-viewer = "less"
-auto_prune_hours = 24
-.fi
-.RE
-.PP
-See the example config at
-.I https://github.com/metruzanca/bj
-for all the options, lovingly commented.
-.SH "SHELL INTEGRATION (SERIOUSLY, DO THIS)"
-.SS Fish
-.RS
-.nf
-echo 'bj \-\-init fish | source' >> ~/.config/fish/config.fish
-.fi
-.RE
-.SS Zsh
-.RS
-.nf
-echo 'eval "$(bj \-\-init zsh)"' >> ~/.zshrc
-.fi
-.RE
-.PP
-This gives you tab completion and a
-.B __bj_prompt_info
-function that shows how many jobs are currently... active.
-.PP
-You'll wonder how you ever lived without it. It's transformative.
-.SH EXIT STATUS
-.B 0
-if bj finishes happily.
-.B 1
-if something goes wrong. Check the output for details.
-.SH SEE ALSO
-.BR nohup (1)
-(if you enjoy suffering),
-.BR screen (1)
-(if you enjoy complexity),
-.BR tmux (1)
-(okay, tmux is actually pretty good)
-.SH BUGS
-Report issues at https://github.com/metruzanca/bj/issues
-.PP
-Or just use
-.B \-\-help
-next time. It's right there. Always ready. Unlike this man page, which
-required you to pipe things and probably Google the syntax for your OS.
-.SH AUTHOR
-Written with love, sass, and a little help from AI.
-.SH "FINAL THOUGHTS"
-You made it to the end of a man page. That's... a choice.
-The same information is available via
-.B bj \-\-help
-in a fraction of the time, with colors and everything.
-.PP
-But hey, there's something to be said for the classics.
-`
-
-const fishCompletion = `# bj fish completions
-# Install: bj --completion fish > ~/.config/fish/completions/bj.fish
-
-# Disable file completions for bj
-complete -c bj -f
-
-# Commands
-complete -c bj -l list -d "See what bj is working on"
-complete -c bj -l running -d "Filter: only running jobs"
-complete -c bj -l failed -d "Filter: only ruined jobs"
-complete -c bj -l done -d "Filter: only successful jobs"
-complete -c bj -l logs -d "Watch bj's performance"
-complete -c bj -l kill -d "Stop a job mid-action"
-complete -c bj -l retry -d "Keep going until bj finishes"
-complete -c bj -l delay -d "Seconds to wait between retry attempts"
-complete -c bj -l id -d "Specify job ID for --retry" -xa "(bj --ids --failed 2>/dev/null)"
-complete -c bj -l prune -d "Clean up when bj is finished"
-complete -c bj -l gc -d "Find ruined jobs after a crash"
-complete -c bj -l json -d "Output in JSON format"
-complete -c bj -l help -d "Show help"
-complete -c bj -s h -d "Show help"
-complete -c bj -l completion -d "Output shell completions" -xa "fish zsh"
-complete -c bj -l init -d "Output prompt integration" -xa "fish zsh"
-complete -c bj -l man -d "Output manual page"
-
-# Job ID completion for --logs and --kill
-complete -c bj -n "__fish_seen_argument -l logs" -a "(bj --ids 2>/dev/null)" -d "Job ID"
-complete -c bj -n "__fish_seen_argument -l kill" -a "(bj --ids --running 2>/dev/null)" -d "Running job ID"
-`
-
-const zshCompletion = `#compdef bj
-# bj zsh completions
-# Install: bj --completion zsh > ~/.zsh/completions/_bj
-#          (ensure ~/.zsh/completions is in your fpath)
-
-_bj_job_ids() {
-    local -a job_ids
-    job_ids=(${(f)"$(bj --ids 2>/dev/null)"})
-    _describe -t job-ids 'job ID' job_ids
-}
-
-_bj_running_job_ids() {
-    local -a job_ids
-    job_ids=(${(f)"$(bj --ids --running 2>/dev/null)"})
-    _describe -t job-ids 'running job ID' job_ids
-}
-
-_bj_failed_job_ids() {
-    local -a job_ids
-    job_ids=(${(f)"$(bj --ids --failed 2>/dev/null)"})
-    _describe -t job-ids 'ruined job ID' job_ids
-}
-
-_bj() {
-    _arguments -C \
-        '--list[See what bj is working on]' \
-        '--running[Filter: only running jobs]' \
-        '--failed[Filter: only ruined jobs]' \
-        '--done[Filter: only successful jobs]' \
-        '--logs[Watch bj'\''s performance]:job ID:_bj_job_ids' \
-        '--kill[Stop a job mid-action]:job ID:_bj_running_job_ids' \
-        '--retry=-[Keep going until bj finishes]:max attempts:' \
-        '--delay[Seconds between retry attempts]:seconds:' \
-        '--id[Specify job ID for --retry]:job ID:_bj_failed_job_ids' \
-        '--prune[Clean up when bj is finished]' \
-        '--gc[Find ruined jobs after a crash]' \
-        '--json[Output in JSON format]' \
-        '--help[Show help]' \
-        '-h[Show help]' \
-        '--completion[Output shell completions]:shell:(fish zsh)' \
-        '--init[Output prompt integration]:shell:(fish zsh)' \
-        '--man[Output manual page]' \
-        '*:command:_command_names'
-}
-
-_bj "$@"
-`
-
-const fishInit = `# bj fish shell integration
-# Setup: echo 'bj --init fish | source' >> ~/.config/fish/config.fish
-# Completions are automatically installed to ~/.config/fish/completions/bj.fish
-
-function __bj_prompt_info
-    set -l running (bj --ids --running 2>/dev/null | wc -l | string trim)
-    if test -n "$running" -a "$running" -gt 0
-        echo -n "[bj:$running] "
-    end
-end
-
-# To use in your prompt, add: __bj_prompt_info
-# Example fish_prompt function:
-#   function fish_prompt
-#       __bj_prompt_info
-#       # ... rest of your prompt
-#   end
-`
-
-const zshInit = `# bj zsh shell integration
-# Setup: echo 'eval "$(bj --init zsh)"' >> ~/.zshrc
-# Completions are automatically installed to ~/.zsh/completions/_bj
-# (ensure ~/.zsh/completions is in your fpath before compinit)
-
-__bj_prompt_info() {
-    local running
-    running=$(bj --ids --running 2>/dev/null | wc -l | tr -d ' ')
-    if [[ -n "$running" && "$running" -gt 0 ]]; then
-        echo -n "[bj:$running] "
-    fi
-}
-
-# To use in your prompt, add $(__bj_prompt_info) to your PROMPT or RPROMPT
-# Example: PROMPT='$(__bj_prompt_info)'$PROMPT
-`
