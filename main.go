@@ -40,6 +40,16 @@ func main() {
 	retryFlag = -1
 	retryDelay = 1
 
+	// Load config first so we can initialize locales (needed for help messages)
+	cfg, err := config.Load()
+	if err != nil {
+		// Can't use locales.Msg yet, use a hardcoded message
+		exitWithError(fmt.Sprintf("bj couldn't get comfortable: %v", err))
+	}
+
+	// Initialize locales based on config
+	locales.Init(cfg.NSFW)
+
 	// Check for --json, --help, --retry[=N], and --id flags anywhere in args
 	args := filterArgs(os.Args[1:], &jsonOutput, &helpRequested, &retryFlag, &retryJobID)
 
@@ -56,21 +66,8 @@ func main() {
 		} else {
 			printUsage("")
 		}
-		if helpRequested {
-			os.Exit(0)
-		}
-		os.Exit(1)
+		os.Exit(0)
 	}
-
-	// Load config first so we can initialize locales
-	cfg, err := config.Load()
-	if err != nil {
-		// Can't use locales.Msg yet, use a hardcoded message
-		exitWithError(fmt.Sprintf("bj couldn't get comfortable: %v", err))
-	}
-
-	// Initialize locales based on config
-	locales.Init(cfg.NSFW)
 
 	// Validate --id is only used with --retry
 	if retryJobID != 0 && retryFlag < 0 {
