@@ -29,6 +29,7 @@ var helpRequested bool
 var retryFlag int    // -1 = not set, 0 = unlimited, N = max attempts
 var retryJobID int   // 0 = not set (use latest), N = specific job ID
 var retryDelay int   // delay in seconds between retries (default 1)
+var restartFlag bool // -1 = not set, true = restart on failure
 
 // List filter flags
 var listRunning bool
@@ -39,6 +40,7 @@ func main() {
 	// Initialize retryFlag to -1 (not set) and delay to 1 second
 	retryFlag = -1
 	retryDelay = 1
+	restartFlag = false
 
 	// Load config first so we can initialize locales (needed for help messages)
 	cfg, err := config.Load()
@@ -50,8 +52,8 @@ func main() {
 	// Initialize locales based on config
 	locales.Init(cfg.NSFW)
 
-	// Check for --json, --help, --retry[=N], and --id flags anywhere in args
-	args := filterArgs(os.Args[1:], &jsonOutput, &helpRequested, &retryFlag, &retryJobID)
+	// Check for --json, --help, --retry[=N], --id, and --restart flags anywhere in args
+	args := filterArgs(os.Args[1:], &jsonOutput, &helpRequested, &retryFlag, &retryJobID, &restartFlag)
 
 	// Handle help for --retry
 	if helpRequested && retryFlag >= 0 {
@@ -79,6 +81,11 @@ func main() {
 		exitWithError(locales.Msg("err.delay_only_with_retry"))
 	}
 
+	// Validate --restart and --retry are mutually exclusive
+	if restartFlag && retryFlag >= 0 {
+		exitWithError(locales.Msg("err.restart_and_retry"))
+	}
+
 	// Create tracker
 	t, err := tracker.New()
 	if err != nil {
@@ -88,6 +95,17 @@ func main() {
 	// Auto-prune if configured
 	if cfg.AutoPruneHours > 0 {
 		t.PruneOlderThan(time.Duration(cfg.AutoPruneHours) * time.Hour)
+	}
+
+	// Handle --restart as a modifier flag
+	if restartFlag {
+		if len(args) < 1 {
+			exitWithError(locales.Msg("err.restart_needs_command"))
+		}
+		// Run new command with restart (infinite loop on failure)
+		command := strings.Join(args, " ")
+		runCommandWithRestart(cfg, t, command)
+		return
 	}
 
 	// Handle --retry as a modifier flag
@@ -187,7 +205,7 @@ func main() {
 }
 
 // filterArgs removes global flags, sets flag values, returns remaining args
-func filterArgs(args []string, jsonFlag *bool, helpFlag *bool, retryFlagOut *int, retryJobIDOut *int) []string {
+func filterArgs(args []string, jsonFlag *bool, helpFlag *bool, retryFlagOut *int, retryJobIDOut *int, restartFlagOut *bool) []string {
 	var filtered []string
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
@@ -223,6 +241,8 @@ func filterArgs(args []string, jsonFlag *bool, helpFlag *bool, retryFlagOut *int
 				os.Exit(1)
 			}
 			*retryJobIDOut = id
+		case arg == "--restart":
+			*restartFlagOut = true
 		case arg == "--running":
 			listRunning = true
 		case arg == "--failed":
@@ -285,6 +305,8 @@ func printUsage(command string) {
 		fmt.Println(locales.Msg("help.kill"))
 	case "--gc":
 		fmt.Println(locales.Msg("help.gc"))
+	case "--restart":
+		fmt.Println(locales.Msg("help.restart"))
 	case "--retry":
 		fmt.Println(locales.Msg("help.retry"))
 	case "--completion":
@@ -580,6 +602,31 @@ func runCommandWithRetry(cfg *config.Config, t *tracker.Tracker, command string,
 		} else {
 			fmt.Println(locales.Msg("job.retry_limited", jobID, maxAttempts, command))
 		}
+	}
+}
+
+// runCommandWithRestart runs a new command with restart-on-failure logic
+func runCommandWithRestart(cfg *config.Config, t *tracker.Tracker, command string) {
+	pwd, err := os.Getwd()
+	if err != nil {
+		exitWithError(locales.Msg("err.restart_pwd_failed", err))
+	}
+
+	r := runner.New(cfg, t)
+	jobID, err := r.RunWithRestart(command, pwd)
+	if err != nil {
+		exitWithError(locales.Msg("err.run_failed", err))
+	}
+
+	if jsonOutput {
+		outputJSON(map[string]interface{}{
+			"id":      jobID,
+			"command": command,
+			"status":  "started",
+			"restart": true,
+		})
+	} else {
+		fmt.Println(locales.Msg("job.restarted", jobID, command))
 	}
 }
 
