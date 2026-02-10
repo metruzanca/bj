@@ -17,6 +17,7 @@ mise use -g github:metruzanca/bj
 ```bash
 bj <command>              # Run command in background
 bj --retry[=N] <command>  # Run with retry until success (or N attempts)
+bj --restart <command>    # Run with infinite restart on failure (5s delay)
 bj --list                 # List all jobs
 bj --logs [id]            # View logs (latest if no id)
 bj --kill [id]            # Terminate a running job
@@ -33,6 +34,7 @@ bj make build             # Run make build in background
 bj --retry npm test       # Keep running tests until they pass
 bj --retry=3 make build   # Try building up to 3 times
 bj --retry --delay 5 ...  # Wait 5 seconds between retries
+bj --restart ./server     # Keep server running forever (restarts on crash)
 bj --list                 # Show job list with status
 bj --list --running       # Show only running jobs
 bj --list --failed        # Show only failed jobs
@@ -50,6 +52,7 @@ bj --retry --id 5         # Retry job #5
 - **Job tracking** - Records start/end time, exit code, working directory
 - **Log capture** - All stdout/stderr saved to timestamped log files
 - **Retry support** - Automatically retry failed commands with configurable attempts and delay
+- **Restart support** - Keep services running forever with automatic restart on failure
 - **Job control** - Kill running jobs, retry failed ones
 - **Colored output** - Running/done/failed jobs are visually distinct
 - **Auto-cleanup** - Done jobs older than 24hrs are automatically pruned

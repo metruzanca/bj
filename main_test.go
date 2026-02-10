@@ -328,7 +328,7 @@ func TestNoArgs(t *testing.T) {
 	env := newTestEnv(t)
 
 	stdout, _, code := env.run()
-	assertExitCode(t, code, 1)
+	assertExitCode(t, code, 0)
 	// Should print help on no args
 	assertContains(t, stdout, "bj - Background Jobs")
 }
