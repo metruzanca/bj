@@ -29,6 +29,7 @@ _bj() {
         '--done[Filter: only successful jobs]' \
         '--logs[Watch bj'\''s performance]:job ID:_bj_job_ids' \
         '--kill[Stop a job mid-action]:job ID:_bj_running_job_ids' \
+        '--restart[Restart on failure with 5s delay]' \
         '--retry=-[Keep going until bj finishes]:max attempts:' \
         '--delay[Seconds between retry attempts]:seconds:' \
         '--id[Specify job ID for --retry]:job ID:_bj_failed_job_ids' \
