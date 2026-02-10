@@ -3,42 +3,45 @@ package locales
 // SFW contains the default (safe for work) messages
 var SFW = Messages{
 	// Error messages
-	"err.id_only_with_retry":     "--id only makes sense with --retry. They go together like... well, you know.",
-	"err.delay_only_with_retry":  "--delay without --retry? bj needs something to delay between.",
-	"err.config_load":            "bj couldn't get comfortable: %v",
-	"err.tracker_init":           "bj lost track of things: %v",
-	"err.completion_usage":       "Usage: bj --completion <fish|zsh>",
-	"err.init_usage":             "Usage: bj --init <fish|zsh>",
-	"err.invalid_number":         "bj needs a valid number, not '%s'",
-	"err.complete_usage":         "Usage: bj --complete <job_id> <exit_code>",
-	"err.invalid_job_id":         "bj needs a valid job ID, not '%s'",
-	"err.invalid_exit_code":      "bj needs a valid exit code, not '%s'",
-	"err.complete_failed":        "bj couldn't finish properly: %v",
-	"err.unknown_flag":           "Unknown flag: %s. Try 'bj --help' for usage.",
-	"err.run_failed":             "bj couldn't get it up: %v",
-	"err.list_failed":            "bj can't show you what it's got: %v",
-	"err.prune_failed":           "bj made a mess while cleaning up: %v",
-	"err.gc_failed":              "bj had trouble cleaning up its mess: %v",
-	"err.kill_check_failed":      "bj can't check its active sessions: %v",
-	"err.kill_failed":            "bj couldn't pull out: %v",
-	"err.retry_pwd_failed":       "bj couldn't figure out where you are: %v",
-	"err.retry_history_failed":   "bj can't check its history: %v",
-	"err.retry_find_failed":      "bj can't find that one: %v",
-	"err.job_not_found":          "Job %d? bj doesn't remember that.",
-	"err.job_still_running":      "Job %d is still going. bj doesn't stop until it's done.",
-	"err.job_already_succeeded":  "Job %d already finished successfully. No need to go again.",
-	"err.retry_start_failed":     "bj couldn't get started again: %v",
-	"err.logs_recall_failed":     "bj can't recall the last session: %v",
-	"err.logs_find_failed":       "bj can't find that one: %v",
-	"err.logs_not_found":         "bj swallowed the logs. File not found: %s",
-	"err.logs_read_failed":       "bj couldn't read the logs: %v",
-	"err.logs_open_failed":       "bj choked while opening logs: %v",
-	"err.unknown_shell":          "Unknown shell: %s. bj knows fish and zsh.",
-	"err.retry_positive_number":  "bj needs a positive number for retry limit, not '%s'",
-	"err.id_needs_value":         "--id needs a job ID to go with it",
-	"err.job_id_minimum":         "Job IDs start at 1. '%d' won't satisfy bj.",
-	"err.delay_needs_value":      "--delay needs a number of seconds",
-	"err.delay_non_negative":     "bj needs a non-negative delay, not '%s'",
+	"err.id_only_with_retry":    "--id only makes sense with --retry. They go together like... well, you know.",
+	"err.delay_only_with_retry": "--delay without --retry? bj needs something to delay between.",
+	"err.restart_and_retry":     "--restart and --retry don't play well together. Pick your stamina strategy.",
+	"err.restart_needs_command": "--restart needs a command to... well, restart. Give bj something to work with.",
+	"err.restart_pwd_failed":    "bj lost its bearings and can't restart: %v",
+	"err.config_load":           "bj couldn't get comfortable: %v",
+	"err.tracker_init":          "bj lost track of things: %v",
+	"err.completion_usage":      "Usage: bj --completion <fish|zsh>",
+	"err.init_usage":            "Usage: bj --init <fish|zsh>",
+	"err.invalid_number":        "bj needs a valid number, not '%s'",
+	"err.complete_usage":        "Usage: bj --complete <job_id> <exit_code>",
+	"err.invalid_job_id":        "bj needs a valid job ID, not '%s'",
+	"err.invalid_exit_code":     "bj needs a valid exit code, not '%s'",
+	"err.complete_failed":       "bj couldn't finish properly: %v",
+	"err.unknown_flag":          "Unknown flag: %s. Try 'bj --help' for usage.",
+	"err.run_failed":            "bj couldn't get it up: %v",
+	"err.list_failed":           "bj can't show you what it's got: %v",
+	"err.prune_failed":          "bj made a mess while cleaning up: %v",
+	"err.gc_failed":             "bj had trouble cleaning up its mess: %v",
+	"err.kill_check_failed":     "bj can't check its active sessions: %v",
+	"err.kill_failed":           "bj couldn't pull out: %v",
+	"err.retry_pwd_failed":      "bj couldn't figure out where you are: %v",
+	"err.retry_history_failed":  "bj can't check its history: %v",
+	"err.retry_find_failed":     "bj can't find that one: %v",
+	"err.job_not_found":         "Job %d? bj doesn't remember that.",
+	"err.job_still_running":     "Job %d is still going. bj doesn't stop until it's done.",
+	"err.job_already_succeeded": "Job %d already finished successfully. No need to go again.",
+	"err.retry_start_failed":    "bj couldn't get started again: %v",
+	"err.logs_recall_failed":    "bj can't recall the last session: %v",
+	"err.logs_find_failed":      "bj can't find that one: %v",
+	"err.logs_not_found":        "bj swallowed the logs. File not found: %s",
+	"err.logs_read_failed":      "bj couldn't read the logs: %v",
+	"err.logs_open_failed":      "bj choked while opening logs: %v",
+	"err.unknown_shell":         "Unknown shell: %s. bj knows fish and zsh.",
+	"err.retry_positive_number": "bj needs a positive number for retry limit, not '%s'",
+	"err.id_needs_value":        "--id needs a job ID to go with it",
+	"err.job_id_minimum":        "Job IDs start at 1. '%d' won't satisfy bj.",
+	"err.delay_needs_value":     "--delay needs a number of seconds",
+	"err.delay_non_negative":    "bj needs a non-negative delay, not '%s'",
 
 	// Status messages
 	"job.started":            "[%d] bj is on it: %s",
@@ -47,6 +50,7 @@ var SFW = Messages{
 	"job.retry_one":          "[%d] bj will give it one shot: %s",
 	"job.retry_limited":      "[%d] bj will tease up to %d times before giving up: %s",
 	"job.retry_one_existing": "[%d] bj is giving it one more go: %s",
+	"job.restarted":          "[%d] bj will keep coming back for more (restarts on failure): %s",
 
 	// List messages
 	"list.empty":          "bj has nothing going on. Give it something to do!",
@@ -77,6 +81,7 @@ Give bj a command and it'll handle the rest while you sit back and relax.
 Usage:
   bj <command>              Slip a command in the background
   bj --retry[=N] <command>  Run with retry until success (or N attempts)
+  bj --restart <command>    Run with infinite restart on failure (5s delay)
   bj --list                 See what bj is working on
   bj --logs [id]            Watch bj's performance
   bj --kill [id]            Stop a job mid-action
@@ -91,6 +96,7 @@ Shell Integration:
 
 Options:
   --retry[=N]         Keep trying until success (or limit to N attempts)
+  --restart           Restart command on failure after 5s (infinite loop)
   --id ID             Specify job ID for --retry (defaults to most recent)
   --json              Output in JSON format (works with all commands)
   -h, --help          Show this help (use with commands for detailed help)
@@ -100,6 +106,7 @@ Examples:
   bj npm install            bj npm while you grab coffee
   bj --retry npm test       Keep testing until it passes
   bj --retry=3 make build   Try building up to 3 times
+  bj --restart ./server     Restart server on crash (infinite loop)
   bj --list                 Check how bj is doing
   bj --logs                 See bj's latest output
   bj --kill                 Stop the current job abruptly
@@ -201,6 +208,28 @@ Options:
 
 Examples:
   bj --gc           Clean up after an unexpected interruption`,
+
+	// Help text - restart
+	"help.restart": `bj --restart - Keep a command running forever
+
+Usage: bj --restart <command>
+
+Runs a command in the background and automatically restarts it if it fails.
+Unlike --retry, there's no limit to restarts - the command keeps trying
+until it succeeds. After each failure, bj waits 5 seconds before trying again.
+
+Perfect for long-running services that should stay up indefinitely.
+
+Options:
+  --json    Output job info as JSON
+
+Examples:
+  bj --restart ./server          Keep your server coming back for more
+  bj --restart python worker.py  Worker that never says die
+  bj --restart npm run watch     Dev server that restarts on crash
+
+Note: Unlike --retry, --restart doesn't work with existing jobs. It only
+works with new commands. To stop a restarting job, use bj --kill.`,
 
 	// Help text - retry
 	"help.retry": `bj --retry - Keep going until bj finishes the job
@@ -463,6 +492,7 @@ complete -c bj -l failed -d "Filter: only ruined jobs"
 complete -c bj -l done -d "Filter: only successful jobs"
 complete -c bj -l logs -d "Watch bj's performance"
 complete -c bj -l kill -d "Stop a job mid-action"
+complete -c bj -l restart -d "Restart on failure with 5s delay"
 complete -c bj -l retry -d "Keep going until bj finishes"
 complete -c bj -l delay -d "Seconds to wait between retry attempts"
 complete -c bj -l id -d "Specify job ID for --retry" -xa "(bj --ids --failed 2>/dev/null)"
@@ -512,6 +542,7 @@ _bj() {
         '--done[Filter: only successful jobs]' \
         '--logs[Watch bj'\''s performance]:job ID:_bj_job_ids' \
         '--kill[Stop a job mid-action]:job ID:_bj_running_job_ids' \
+        '--restart[Restart on failure with 5s delay]' \
         '--retry=-[Keep going until bj finishes]:max attempts:' \
         '--delay[Seconds between retry attempts]:seconds:' \
         '--id[Specify job ID for --retry]:job ID:_bj_failed_job_ids' \
