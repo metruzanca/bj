@@ -16,7 +16,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `--man` flag to output a full manual page (pipe to `man` for viewing)
-- NSFW mode (`nsfw = true` in config) for raunchier message variants
 - Localization system for all user-facing strings
 
 ### Changed

@@ -42,15 +42,11 @@ func main() {
 	retryDelay = 1
 	restartFlag = false
 
-	// Load config first so we can initialize locales (needed for help messages)
+	// Load config (log dir, viewer, auto-prune settings)
 	cfg, err := config.Load()
 	if err != nil {
-		// Can't use locales.Msg yet, use a hardcoded message
 		exitWithError(fmt.Sprintf("bj couldn't get comfortable: %v", err))
 	}
-
-	// Initialize locales based on config
-	locales.Init(cfg.NSFW)
 
 	// Check for --json, --help, --retry[=N], --id, and --restart flags anywhere in args
 	args := filterArgs(os.Args[1:], &jsonOutput, &helpRequested, &retryFlag, &retryJobID, &restartFlag)

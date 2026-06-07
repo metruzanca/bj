@@ -1,7 +1,8 @@
 package locales
 
-// SFW contains the default (safe for work) messages
-var SFW = Messages{
+import "fmt"
+
+var messages = map[string]string{
 	// Error messages
 	"err.id_only_with_retry":    "--id only makes sense with --retry. They go together like... well, you know.",
 	"err.delay_only_with_retry": "--delay without --retry? bj needs something to delay between.",
@@ -597,4 +598,16 @@ __bj_prompt_info() {
 # To use in your prompt, add $(__bj_prompt_info) to your PROMPT or RPROMPT
 # Example: PROMPT='$(__bj_prompt_info)'$PROMPT
 `,
+}
+
+// Msg retrieves a message by key and applies fmt.Sprintf with the given args
+func Msg(key string, args ...any) string {
+	msg, ok := messages[key]
+	if !ok {
+		return fmt.Sprintf("[missing: %s]", key)
+	}
+	if len(args) == 0 {
+		return msg
+	}
+	return fmt.Sprintf(msg, args...)
 }
